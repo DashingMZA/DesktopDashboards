@@ -28,31 +28,38 @@ mod imp {
         uid_subclass: usize,
         _dw_ref_data: usize,
     ) -> LRESULT {
-        if msg == WM_WINDOWPOSCHANGING && lparam.0 != 0 {
-            let wp = &mut *(lparam.0 as *mut WINDOWPOS);
-            if (wp.flags & SWP_NOZORDER)
-                == windows::Win32::UI::WindowsAndMessaging::SET_WINDOW_POS_FLAGS(0)
-            {
-                wp.hwndInsertAfter = HWND_BOTTOM;
+        unsafe {
+            if msg == WM_WINDOWPOSCHANGING && lparam.0 != 0 {
+                let wp = &mut *(lparam.0 as *mut WINDOWPOS);
+                if (wp.flags & SWP_NOZORDER)
+                    == windows::Win32::UI::WindowsAndMessaging::SET_WINDOW_POS_FLAGS(0)
+                {
+                    wp.hwndInsertAfter = HWND_BOTTOM;
+                }
+            } else if msg == WM_NCDESTROY {
+                let _ = RemoveWindowSubclass(hwnd, Some(bottom_subclass_proc), uid_subclass);
             }
-        } else if msg == WM_NCDESTROY {
-            let _ = RemoveWindowSubclass(hwnd, Some(bottom_subclass_proc), uid_subclass);
+            DefSubclassProc(hwnd, msg, wparam, lparam)
         }
-        DefSubclassProc(hwnd, msg, wparam, lparam)
     }
 
-    unsafe extern "system" fn enum_windows_find_defview(hwnd: HWND, lparam: LPARAM) -> windows::core::BOOL {
-        if let Ok(defview) = FindWindowExW(Some(hwnd), None, w!("SHELLDLL_DefView"), None) {
-            if !defview.0.is_null() {
-                let target_ptr = lparam.0 as *mut HWND;
-                *target_ptr = hwnd;
-                return false.into();
+    unsafe extern "system" fn enum_windows_find_defview(
+        hwnd: HWND,
+        lparam: LPARAM,
+    ) -> windows::core::BOOL {
+        unsafe {
+            if let Ok(defview) = FindWindowExW(Some(hwnd), None, w!("SHELLDLL_DefView"), None) {
+                if !defview.0.is_null() {
+                    let target_ptr = lparam.0 as *mut HWND;
+                    *target_ptr = hwnd;
+                    return false.into();
+                }
             }
         }
         true.into()
     }
 
-    /// `Progman` へ `0x052C` を送信し、壁紙レイヤーの `WorkerW` ウィンドウハンドルを取得する。
+    /// Sends `0x052C` to `Progman` and obtains the window handle of the wallpaper-layer `WorkerW`.
     pub fn find_workerw_hwnd() -> Option<HWND> {
         unsafe {
             let progman = FindWindowW(w!("Progman"), None).ok()?;
@@ -78,7 +85,7 @@ mod imp {
             );
 
             if !shell_parent.0.is_null() {
-                // Windows 10 / 11 (23H2以前): SHELLDLL_DefView を持つウィンドウの直後の兄弟 WorkerW
+                // Windows 10 / 11 (23H2 and earlier): the sibling WorkerW right after the window that holds SHELLDLL_DefView
                 if let Ok(workerw) = FindWindowExW(None, Some(shell_parent), w!("WorkerW"), None) {
                     if !workerw.0.is_null() {
                         return Some(workerw);
@@ -86,7 +93,7 @@ mod imp {
                 }
             }
 
-            // Windows 11 24H2 以降等: Progman 直下の WorkerW
+            // Windows 11 24H2 and later, etc.: the WorkerW directly under Progman
             if let Ok(workerw) = FindWindowExW(Some(progman), None, w!("WorkerW"), None) {
                 if !workerw.0.is_null() {
                     return Some(workerw);
@@ -97,7 +104,7 @@ mod imp {
         }
     }
 
-    /// モード A（最背面固定）を適用し、仮想スクリーン座標へ配置する。
+    /// Applies Mode A (pinned to bottom) and places the window at virtual-screen coordinates.
     pub fn apply_bottom_mode_with_pos(
         window: &WebviewWindow,
         screen_x: i32,
@@ -141,7 +148,7 @@ mod imp {
         Ok(())
     }
 
-    /// モード B（WorkerW 壁紙レイヤー埋め込み）を適用し、スクリーン座標→WorkerW クライアント座標へ変換配置する。
+    /// Applies Mode B (embedded in the WorkerW wallpaper layer) and places the window after converting screen coordinates to WorkerW client coordinates.
     pub fn apply_workerw_mode(
         window: &WebviewWindow,
         screen_x: i32,
@@ -196,7 +203,7 @@ mod imp {
         Ok(())
     }
 
-    /// ウィンドウの現在の仮想スクリーン座標（物理ピクセル）を取得する。
+    /// Gets the window's current virtual-screen coordinates (in physical pixels).
     pub fn get_window_screen_rect(window: &WebviewWindow) -> Option<(i32, i32, u32, u32)> {
         let hwnd = window.hwnd().ok()?;
         let hwnd = HWND(hwnd.0);
@@ -209,7 +216,7 @@ mod imp {
         Some((rect.left, rect.top, w, h))
     }
 
-    /// 指定ウィンドウが現在の有効な `WorkerW` にアタッチされているかを確認する。
+    /// Checks whether the given window is attached to the currently valid `WorkerW`.
     pub fn is_attached_to_current_workerw(window: &WebviewWindow) -> bool {
         let Ok(hwnd_raw) = window.hwnd() else {
             return false;
@@ -228,7 +235,7 @@ mod imp {
         }
     }
 
-    /// 透明度 (`WS_EX_LAYERED` + `LWA_ALPHA`)、クリック透過 (`WS_EX_TRANSPARENT`)、`WS_EX_NOACTIVATE` を適用する。
+    /// Applies opacity (`WS_EX_LAYERED` + `LWA_ALPHA`), click-through (`WS_EX_TRANSPARENT`), and `WS_EX_NOACTIVATE`.
     pub fn apply_widget_styles(
         window: &WebviewWindow,
         opacity: f64,
@@ -294,10 +301,10 @@ mod imp {
                 }
             }
         }
-        DefWindowProcW(hwnd, msg, wparam, lparam)
+        unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) }
     }
 
-    /// `TaskbarCreated` ブロードキャストを受信してコールバックを呼ぶ隠しトップレベルウィンドウを起動する。
+    /// Starts a hidden top-level window that receives the `TaskbarCreated` broadcast and invokes the callback.
     pub fn start_taskbar_created_listener<F>(on_reattach: F)
     where
         F: Fn() + Send + Sync + 'static,

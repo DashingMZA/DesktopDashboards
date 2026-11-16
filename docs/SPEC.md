@@ -1,83 +1,83 @@
-# DesktopDashboards 仕様書（SPEC・ドラフト v0.3）
+# DesktopDashboards Specification (SPEC, Draft v0.3)
 
-- **リポジトリ名**: `DesktopDashboards`
-- **アプリ愛称**: 未定（仮称：`DesktopDashboards`）
-- **対象 OS**: Windows 10 / 11 (x64)
-- **技術スタック**: Tauri v2 (Rust) + WebView2 + HTML/CSS/JS
-
----
-
-## 1. コンセプト・目的
-
-任意の Web アプリ、AI アーティファクト（Muse Spaces 等）、ローカル HTML ファイルを、**Windows のデスクトップ（壁紙／最背面）に複数並べて常駐表示できる軽量デスクトップガジェットアプリ**。
-
-- **独立プロダクトとしての汎用性**: 特定の Web サービスに依存せず、URL やローカル HTML を登録するだけであらゆる Web 画面をデスクトップウィジェット化できる。
-- **外部アプリからのキック連携**: 単体起動だけでなく、`Muse Desktop Mascot` などの外部アプリにバンドルし、CLI 引数付きで呼び出すことでシームレスに連携できる。
+- **Repository name**: `DesktopDashboards`
+- **App nickname**: TBD (working title: `DesktopDashboards`)
+- **Target OS**: Windows 10 / 11 (x64)
+- **Tech stack**: Tauri v2 (Rust) + WebView2 + HTML/CSS/JS
 
 ---
 
-## 2. システムアーキテクチャ
+## 1. Concept & Purpose
 
-### 2.1 プロセス・ウィンドウ構成（1プロセス・マルチウィンドウ）
+A lightweight desktop gadget app that lets you keep multiple arbitrary web apps, AI artifacts (such as Muse Spaces), and local HTML files resident on your Windows desktop (wallpaper / very back layer).
 
-トレイ常駐型の **単一プロセス** で動作し、その中に複数のウィンドウを生成・管理する。
+- **Versatility as a standalone product**: Not tied to any specific web service. Simply register a URL or local HTML to turn any web screen into a desktop widget.
+- **Kick-off integration from external apps**: Besides running standalone, it can be bundled with external apps such as `Muse Desktop Mascot` and invoked with CLI arguments for seamless integration.
 
-1. **システムトレイ（常駐本体）**: ウィンドウをすべて閉じてもバックグラウンドで常駐可能。
-2. **管理画面ウィンドウ（Manager UI / 1つ）**: ガジェットの追加・一覧管理・各種設定を行う通常ウィンドウ。
-3. **ガジェットウィンドウ（Widget WebView / 0〜N個）**: 登録・有効化されたコンテンツを表示する枠なしデスクトップガジェットウィンドウ。
-   - **メモリ管理方針**: WebView2 はウィンドウごとにレンダラプロセスが立ち上がるため、同時表示の快適動作目安は **5個程度まで** と想定する。`enabled: false`（非表示）のガジェットはウィンドウを隠す（hide）のではなく **破棄（close）** してメモリを解放する。
+---
 
-### 2.2 WebView2 セッション分離
+## 2. System Architecture
 
-- 他の Tauri / WebView2 アプリとのファイルロック競合を防ぐため、専用の `user_data_dir` を明示的に使用する。
-  - 例：`%LOCALAPPDATA%\DesktopDashboards\webview`
-- 同一プロセス内の複数ガジェットウィンドウ間では同じ `user_data_dir` を共有するため、**一度ログインしたサービス（例：`muse.ai`）の認証状態は全ガジェット間で共有**される。
+### 2.1 Process & Window Structure (Single Process, Multiple Windows)
 
-### 2.3 多重起動防止と CLI 連携
+Runs as a tray-resident **single process**, which creates and manages multiple windows internally.
 
-- `tauri-plugin-single-instance` を導入し、アプリの多重起動を防止する。
-- すでに起動済みの状態で再実行された場合、2つ目のプロセスは引数のみを既存プロセスへ渡して即終了する。
+1. **System tray (resident core)**: Stays resident in the background even when all windows are closed.
+2. **Manager window (Manager UI / one)**: A regular window for adding gadgets, managing the list, and configuring settings.
+3. **Gadget windows (Widget WebView / 0 to N)**: Frameless desktop gadget windows that display registered and enabled content.
+   - **Memory management policy**: Since WebView2 launches a renderer process per window, a comfortable number of simultaneously displayed gadgets is assumed to be **around 5**. Gadgets with `enabled: false` (hidden) are **destroyed (closed)** rather than merely hidden, in order to free memory.
 
-#### CLI 引数仕様（外部アプリ連携用）
+### 2.2 WebView2 Session Isolation
 
-| コマンド例 | 動作 |
+- A dedicated `user_data_dir` is used explicitly to prevent file-lock conflicts with other Tauri / WebView2 apps.
+  - Example: `%LOCALAPPDATA%\DesktopDashboards\webview`
+- Because multiple gadget windows in the same process share the same `user_data_dir`, **the authentication state of a service you have logged in to once (e.g. `muse.ai`) is shared across all gadgets**.
+
+### 2.3 Single-Instance Protection & CLI Integration
+
+- `tauri-plugin-single-instance` is adopted to prevent multiple instances of the app.
+- If the app is run again while already running, the second process passes only its arguments to the existing process and exits immediately.
+
+#### CLI Argument Specification (for external app integration)
+
+| Example command | Behavior |
 | :--- | :--- |
-| `DesktopDashboards.exe`（引数なし） | 初回起動時は登録済みガジェットを復元。既に起動中なら管理画面を前面表示。 |
-| `DesktopDashboards.exe --manager` | 管理画面ウィンドウを開いて前面表示。 |
-| `DesktopDashboards.exe --add-url <URL> [--title <NAME>]` | 指定 URL を新規ガジェットとして追加して表示する。同一 URL が既に存在する場合は有効化し、一時的にZオーダーを引き上げて視認させた後（または管理画面上でハイライト）所定の位置に配置する。 |
-| `DesktopDashboards.exe --silent` | 管理画面を開かず、トレイ常駐＋有効なガジェットのみ静かに起動する（**OS自動起動時は必ずこのフラグ付きで登録**する）。 |
+| `DesktopDashboards.exe` (no arguments) | On first launch, restores registered gadgets. If already running, brings the manager window to the front. |
+| `DesktopDashboards.exe --manager` | Opens the manager window and brings it to the front. |
+| `DesktopDashboards.exe --add-url <URL> [--title <NAME>]` | Adds the specified URL as a new gadget and shows it. If the same URL already exists, enables it, temporarily raises its Z-order to make it visible (or highlights it in the manager), then places it in its designated position. |
+| `DesktopDashboards.exe --silent` | Does not open the manager window; starts quietly in the tray with only enabled gadgets (**when registered for OS auto-launch, this flag must always be included**). |
 
 ---
 
-## 3. 壁紙張り付き（デスクトップ固定）仕様
+## 3. Wallpaper Pinning (Desktop Fixing) Specification
 
-Windows 環境で「他ウィンドウの邪魔にならず、壁紙のように張り付く」挙動を実現するため、2つの固定モードを提供する。  
-`placement_mode` は**アプリ全体のグローバル設定**とし、全ガジェットに統一適用する（モード混在による座標管理の複雑化を避けるため）。
+To achieve the Windows behavior of "not getting in the way of other windows and sticking to the desktop like wallpaper," two pinning modes are provided.  
+`placement_mode` is a **global app-wide setting** applied uniformly to all gadgets (to avoid the complexity of coordinate management caused by mixing modes).
 
-### 3.1 モード A：最背面固定モード（デフォルト・安定重視）
+### 3.1 Mode A: Pinned-to-Bottom Mode (default; stability-focused)
 
-- `decorations: false`（タイトルバー・枠なし）、`skip_taskbar: true`（タスクバー非表示）。
-- `always_on_bottom: true` に加え、Win32 API（`WS_EX_TOOLWINDOW` 付与による `Alt+Tab` 除外、および `WM_WINDOWPOSCHANGING` / `SetWindowPos(HWND_BOTTOM)`）で常に他ウィンドウの最背面に維持する。
-- **メリット**: Windows 10/11 のバージョン差に影響されず安定動作し、クリック・スクロール操作が素直に効く。
-- **既知の制限**: 通常のデスクトップウィンドウとして扱われるため、**`Win + D`（デスクトップを表示）を押すと他のウィンドウと同様に最小化（一時非表示）される**。
+- `decorations: false` (no title bar or frame), `skip_taskbar: true` (hidden from the taskbar).
+- In addition to `always_on_bottom: true`, the window is kept behind all other windows using Win32 APIs (applying `WS_EX_TOOLWINDOW` to exclude it from `Alt+Tab`, and `WM_WINDOWPOSCHANGING` / `SetWindowPos(HWND_BOTTOM)`).
+- **Advantages**: Works stably regardless of Windows 10/11 version differences, and clicking and scrolling behave naturally.
+- **Known limitation**: Because it is treated as a normal desktop window, **pressing `Win + D` (Show desktop) minimizes (temporarily hides) it like any other window**.
 
-### 3.2 モード B：壁紙レイヤー埋め込みモード（`WorkerW` モード・Phase 3）
+### 3.2 Mode B: Wallpaper-Layer Embedding Mode (`WorkerW` mode, Phase 3)
 
-- `Progman` へ `0x052C` を送信して `WorkerW` を生成し、`SetParent` によりガジェットをデスクトップアイコン層（`SHELLDLL_DefView`）の背面／壁紙層に埋め込む。
-- **メリット**: `Win + D`（デスクトップを表示）を押してもガジェットが消えない。
-- **モード切替時の座標変換**: モード A（仮想スクリーン座標）とモード B（`WorkerW` 親ウィンドウ相対のクライアント座標）では座標空間が異なるため、モード切替時に `ScreenToClient` / `ClientToScreen` 相当の座標変換を行い、ウィジェットが画面外へ飛ばないようにする。
+- Sends `0x052C` to `Progman` to create a `WorkerW`, then uses `SetParent` to embed the gadget behind the desktop icon layer (`SHELLDLL_DefView`) / into the wallpaper layer.
+- **Advantages**: Gadgets do not disappear when `Win + D` (Show desktop) is pressed.
+- **Coordinate conversion on mode switch**: Mode A (virtual-screen coordinates) and Mode B (client coordinates relative to the `WorkerW` parent window) use different coordinate spaces, so a coordinate conversion equivalent to `ScreenToClient` / `ClientToScreen` is performed when switching modes to prevent widgets from flying off-screen.
 
 ---
 
-## 4. ガジェット機能仕様
+## 4. Gadget Feature Specification
 
-### 4.1 データモデルと永続化（`config.json`）
+### 4.1 Data Model & Persistence (`config.json`)
 
-設定ファイルは `%APPDATA%\DesktopDashboards\config.json` に保存する。
+The configuration file is stored at `%APPDATA%\DesktopDashboards\config.json`.
 
-#### 原子的書き込み・バックアップ
-- 位置・サイズ変更時のデバウンス保存や設定変更時は、直接 `config.json` を上書きせず、**一時ファイル（`config.json.tmp`）へ書き込み・flush してからリネーム置換**する原子的書き込みを行う。
-- 正常な設定を 1世代バックアップ（`config.json.bak`）として保持し、万が一破損時は自動フォールバックする。
+#### Atomic Writes & Backup
+- For debounced saves on position/size changes and for settings changes, `config.json` is not overwritten directly. Instead, an atomic write is performed: **write to a temporary file (`config.json.tmp`), flush, then replace via rename**.
+- A valid configuration is kept as a one-generation backup (`config.json.bak`), and the app automatically falls back to it in case of corruption.
 
 ```json
 {
@@ -87,7 +87,7 @@ Windows 環境で「他ウィンドウの邪魔にならず、壁紙のように
   "widgets": [
     {
       "id": "550e8400-e29b-41d4-a716-446655440000",
-      "title": "通勤電車 時刻表",
+      "title": "Commuter Train Timetable",
       "source_type": "url",
       "source": "https://muse.ai/library/artifacts/tong-qin-dian-che-shi-ke-biao",
       "enabled": true,
@@ -109,99 +109,99 @@ Windows 環境で「他ウィンドウの邪魔にならず、壁紙のように
 }
 ```
 
-#### ローカル HTML の扱い（`source_type: "file"`）
-- `source_type` は `"url"` または `"file"` とする。
-- `"file"` の場合、`source` にローカル HTML ファイルの絶対パスを保持し、Tauri のカスタムプロトコル（または許可されたローカル読み込み機構）経由で安全なスコープのもと表示する。
+#### Handling Local HTML (`source_type: "file"`)
+- `source_type` is either `"url"` or `"file"`.
+- For `"file"`, `source` holds the absolute path of the local HTML file, which is displayed within a safe scope via a Tauri custom protocol (or another permitted local-loading mechanism).
 
-### 4.2 座標系とマルチモニタ DPI 対応
+### 4.2 Coordinate System & Multi-Monitor DPI Support
 
-- 座標（`x`, `y`）およびサイズ（`width`, `height`）は **物理ピクセル（仮想デスクトップ座標）** で記録し、保存時のモニタの `dpi_scale`（例：`1.0`, `1.25`, `1.5`）も併せて保持する。
-- 復元時は、保存時の論理サイズ（`物理サイズ / 保存時 dpi_scale`）を基準に**復元先モニタの DPI に合わせて物理サイズを再計算**し、見かけの大きさが極端に変わらないようにする。
-- 起動・復元時に接続中モニタの領域外（例：外部モニタ取り外し後）にある場合は、プライマリモニタ内の安全領域へ自動補正する。
+- Coordinates (`x`, `y`) and size (`width`, `height`) are recorded in **physical pixels (virtual desktop coordinates)**, together with the `dpi_scale` of the monitor at save time (e.g. `1.0`, `1.25`, `1.5`).
+- On restore, using the logical size at save time (`physical size / saved dpi_scale`) as the baseline, the **physical size is recalculated to match the DPI of the destination monitor**, so that the apparent size does not change drastically.
+- If, at startup or restore, a gadget lies outside the area of the currently connected monitors (e.g. after an external monitor was disconnected), it is automatically corrected to a safe area within the primary monitor.
 
-### 4.3 リンククリック時のナビゲーション方針
+### 4.3 Navigation Policy on Link Clicks
 
-枠なしガジェットウィンドウにはブラウザの「戻る」ボタンがないため、以下のルールでナビゲーションを制御する：
+Because frameless gadget windows have no browser "Back" button, navigation is controlled with the following rules:
 
-1. **同一オリジン内の遷移**: ガジェット内でそのまま遷移を許可する。
-2. **外部ドメインへの遷移 / 新規ウィンドウ（`target="_blank"` 等）**: ガジェット内では開かず、OS の既定ブラウザで開く（`tauri-plugin-opener` 等）。
-3. **ホバーバーの操作**:
-   - **リロード（↻）**: 現在表示中のページを再読み込みする。
-   - **ホーム（⌂）**: 登録された初期 `source`（URL / ファイル）へ戻る。
+1. **Same-origin navigation**: Allowed to proceed within the gadget.
+2. **Navigation to external domains / new windows (`target="_blank"`, etc.)**: Not opened inside the gadget; opened in the OS default browser instead (via `tauri-plugin-opener` or similar).
+3. **Hover bar actions**:
+   - **Reload (↻)**: Reloads the currently displayed page.
+   - **Home (⌂)**: Returns to the registered initial `source` (URL / file).
 
-### 4.4 各ガジェットの制御・表示機能
+### 4.4 Per-Gadget Control & Display Features
 
-1. **ロック機能（`locked`）**
-   - **ロック解除時**：ガジェット上端にホバーした時だけ薄い操作バー（ドラッグ移動・タイトル・ホーム・リロード・ロック・閉じる）を表示し、ウィンドウ端でのリサイズも可能。
-   - **ロック時**：操作バーとリサイズ枠を完全に隠し、誤操作による移動・サイズ変更を防止する。
-2. **透明度（`opacity`）とクリック透過（`click_through`）**
-   - どちらも Win32 のレイヤードウィンドウ（`WS_EX_LAYERED`）を前提に実装する。
-   - **透明度（20% 〜 100%）**: `SetLayeredWindowAttributes`（`LWA_ALPHA`）でウィンドウ全体の不透明度を制御する。
-   - **クリック透過**: `WS_EX_TRANSPARENT` を付与し、マウスイベントを背後のデスクトップへ透過させる（解除はトレイメニューまたは管理画面から行う）。
-3. **フォーカス非奪取（`no_activate`）**
-   - 「見るだけ／軽く触るだけ」のガジェット向けに、Win32 `WS_EX_NOACTIVATE` を付与できるオプションを用意する。クリックしても他アプリのフォーカス（IMEや作業中ウィンドウ）を奪わない。
-4. **表示カスタマイズ**
-   - **ズーム倍率（`zoom`）**: 50% 〜 200%
-   - **スクロールバー非表示（`hide_scrollbar`）**: CSS 注入によりすっきりした見た目に調整
-5. **定期自動リロードと入力保護（`auto_reload_minutes`）**
-   - 0（無効）、1分、5分、15分、30分、60分などの間隔で自動リロードする。
-   - **リロードガード**: WebView 内の入力要素（`input` / `textarea` / `contenteditable`）にフォーカスがある場合、または直近数秒以内にユーザー操作（クリック・キー入力）があった場合はリロードを延期し、操作終了後に安全に実行する。トレイメニューの「すべて再読み込み」も同様にリロードガードの対象とする。
-
----
-
-## 5. UI / 操作導線
-
-### 5.1 システムトレイメニュー
-
-- **管理画面を開く**（ダブルクリックでも同様）
-- **ガジェット一覧**（チェックボックスで表示/非表示を即切替）
-- **すべてロック / すべてロック解除**
-- **すべて再読み込み**
-- **Windows起動時に自動起動**（トグル：有効時は `--silent` 付きで登録）
-- **終了**
-
-### 5.2 管理画面（Dashboard Manager）
-
-- **新規ガジェット追加**: URL またはローカル HTML ファイルを選択し、タイトルを入力して即作成。
-- **ガジェットカード一覧**:
-  - 表示 ON / OFF スイッチ
-  - ロック / クリック透過 / フォーカス非奪取 トグル
-  - 詳細設定（透明度スライダー、ズーム、自動リロード間隔、スクロールバー非表示、カスタム CSS）
-  - 「位置を中央にリセット」ボタン（画面外迷子対策）
-  - 削除ボタン
+1. **Lock feature (`locked`)**
+   - **When unlocked**: A thin action bar (drag to move, title, home, reload, lock, close) appears only while hovering over the top edge of the gadget, and resizing from the window edges is also possible.
+   - **When locked**: The action bar and resize borders are completely hidden to prevent accidental moves or resizes.
+2. **Opacity (`opacity`) and click-through (`click_through`)**
+   - Both are implemented on the premise of Win32 layered windows (`WS_EX_LAYERED`).
+   - **Opacity (20% – 100%)**: Controls the opacity of the whole window via `SetLayeredWindowAttributes` (`LWA_ALPHA`).
+   - **Click-through**: Applies `WS_EX_TRANSPARENT` so mouse events pass through to the desktop behind (it can be disabled from the tray menu or the manager window).
+3. **No focus stealing (`no_activate`)**
+   - For "view-only / light-touch" gadgets, an option is provided to apply Win32 `WS_EX_NOACTIVATE`. Clicking does not take focus (IME or the window being worked in) away from other apps.
+4. **Display customization**
+   - **Zoom level (`zoom`)**: 50% – 200%
+   - **Hide scrollbar (`hide_scrollbar`)**: Adjusts the look to be cleaner via CSS injection
+5. **Periodic auto-reload and input protection (`auto_reload_minutes`)**
+   - Auto-reloads at intervals such as 0 (disabled), 1 min, 5 min, 15 min, 30 min, and 60 min.
+   - **Reload guard**: If an input element (`input` / `textarea` / `contenteditable`) in the WebView has focus, or if there was user interaction (click or key input) within the last few seconds, the reload is postponed and executed safely after the interaction ends. The tray menu's "Reload All" is also subject to the reload guard.
 
 ---
 
-## 6. 外部アプリ連携（Muse Desktop Mascot バンドル想定）
+## 5. UI / Interaction Flow
 
-`Muse Desktop Mascot` 側からは以下のイメージで連携する：
+### 5.1 System Tray Menu
 
-1. `Muse Desktop Mascot` のビルド／配布パッケージ内に `DesktopDashboards.exe` を同梱する。
-2. `Muse Desktop Mascot` のトレイメニューまたはチャット画面アクションから、`DesktopDashboards.exe --add-url <スペースURL>` または引数なしで起動する。
-3. `DesktopDashboards` は独立した常駐アプリとして動作し、マスコットを終了してもデスクトップ上のガジェットは維持される。
+- **Open Manager** (double-click does the same)
+- **Gadget list** (checkboxes instantly toggle show/hide)
+- **Lock All / Unlock All**
+- **Reload All**
+- **Launch at Windows startup** (toggle: when enabled, registered with `--silent`)
+- **Quit**
+
+### 5.2 Manager Window (Dashboard Manager)
+
+- **Add new gadget**: Choose a URL or local HTML file, enter a title, and create it immediately.
+- **Gadget card list**:
+  - Show ON / OFF switch
+  - Lock / click-through / no-focus-steal toggles
+  - Detailed settings (opacity slider, zoom, auto-reload interval, hide scrollbar, custom CSS)
+  - "Reset position to center" button (to rescue gadgets lost off-screen)
+  - Delete button
 
 ---
 
-## 7. 開発フェーズ計画
+## 6. External App Integration (Assuming Bundling with Muse Desktop Mascot)
 
-### Phase 1: MVP（最小実用構成）
-- **M0（最優先スパイク検証・判断ゲート）**: 新規 Tauri v2 + 独立 `user_data_dir` の WebView2 内で **`muse.ai` へのログインおよびスペース（Artifacts）の表示・操作が正常にできるか** を実機確認する。
-  - *判断ゲート*: もし認証方式等で弾かれてログインできない場合は、MVP 本実装へ進む前に「公開 URL 限定モードにするか」「既定ブラウザ経由認証／`Muse Desktop Mascot` 統合案へ切り替えるか」を再検討する。
-- Tauri v2 プロジェクト初期構築（`DesktopDashboards`）
-- `single-instance` ＋ CLI 引数（`--add-url`, `--manager`, `--silent`）
-- 最背面固定モード（`HWND_BOTTOM` ＋ `skip_taskbar` ＋ `WS_EX_TOOLWINDOW`）
-- ナビゲーション制御（同一オリジン遷移許可、外部リンクは既定ブラウザ起動）
-- 複数ガジェットウィンドウの生成・破棄・`config.json` 原子的永続化（URL + ローカル HTML）
-- 基本的な管理画面（追加・削除・表示切替・位置リセット）＋ トレイメニュー（自動起動 `--silent` 含む）
+Integration from the `Muse Desktop Mascot` side is envisioned as follows:
 
-### Phase 2: ガジェット体験の磨き込み
-- ロック機能（ホバー時のみ現れるドラッグハンドルバー＋リロード／ホームボタン）
-- `WS_EX_LAYERED` による透明度・クリック透過（`WS_EX_TRANSPARENT`）・`WS_EX_NOACTIVATE`
-- ズーム倍率・スクロールバー非表示・定期自動リロード（入力保護付き）
-- マルチモニタ DPI スケール対応＆異常座標ガード
+1. `DesktopDashboards.exe` is bundled in the build / distribution package of `Muse Desktop Mascot`.
+2. From the `Muse Desktop Mascot` tray menu or a chat screen action, it launches `DesktopDashboards.exe --add-url <Space URL>` or runs it without arguments.
+3. `DesktopDashboards` operates as an independent resident app, so gadgets on the desktop remain even when the mascot is closed.
 
-### Phase 3: 高度な固定と連携
-- `WorkerW` 壁紙埋め込みモード（`Win + D` 耐性）とモード間座標変換
-  - Explorer の再起動や壁紙スライドショー切替で `WorkerW` が再生成された際の**自動再アタッチ**（`TaskbarCreated` 検知等）も併せて検証する。
-- カスタム CSS 注入機能
-- `Muse Desktop Mascot` 側へのバンドル＆キック機能組み込み
+---
+
+## 7. Development Phase Plan
+
+### Phase 1: MVP (Minimum Viable Configuration)
+- **M0 (top-priority spike verification / decision gate)**: Verify on a real machine whether **logging in to `muse.ai` and viewing/operating Spaces (Artifacts) works correctly** inside a fresh Tauri v2 + WebView2 with an independent `user_data_dir`.
+  - *Decision gate*: If login is rejected due to the authentication method or similar, reconsider before proceeding to the full MVP implementation whether to "limit to a public-URL mode" or "switch to default-browser authentication / a `Muse Desktop Mascot` integration approach".
+- Initial Tauri v2 project setup (`DesktopDashboards`)
+- `single-instance` + CLI arguments (`--add-url`, `--manager`, `--silent`)
+- Pinned-to-bottom mode (`HWND_BOTTOM` + `skip_taskbar` + `WS_EX_TOOLWINDOW`)
+- Navigation control (allow same-origin navigation, open external links in the default browser)
+- Creation / destruction of multiple gadget windows and atomic `config.json` persistence (URL + local HTML)
+- Basic manager window (add, delete, toggle visibility, reset position) + tray menu (including auto-launch with `--silent`)
+
+### Phase 2: Polishing the Gadget Experience
+- Lock feature (drag handle bar that appears only on hover + reload / home buttons)
+- Opacity, click-through (`WS_EX_TRANSPARENT`), and `WS_EX_NOACTIVATE` via `WS_EX_LAYERED`
+- Zoom level, hide scrollbar, periodic auto-reload (with input protection)
+- Multi-monitor DPI scale support & abnormal-coordinate guard
+
+### Phase 3: Advanced Pinning & Integration
+- `WorkerW` wallpaper-embedding mode (`Win + D` resilience) and inter-mode coordinate conversion
+  - Also verify **automatic re-attachment** when `WorkerW` is recreated by an Explorer restart or wallpaper slideshow switch (e.g. via `TaskbarCreated` detection).
+- Custom CSS injection feature
+- Bundling with `Muse Desktop Mascot` and implementing the kick-off feature on its side

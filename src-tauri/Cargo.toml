@@ -3,7 +3,9 @@ name = "desktop-dashboards"
 version = "0.1.0"
 description = "Lightweight Windows desktop web gadget app"
 license = "MIT"
-edition = "2021"
+authors = ["Muhammad Zaheer Ahmad"]
+homepage = "https://github.com/DashingMZA/DesktopDashboards"
+edition = "2024"
 
 [lib]
 name = "desktop_dashboards_lib"

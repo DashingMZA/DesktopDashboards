@@ -9,14 +9,14 @@ use tauri_plugin_autostart::ManagerExt;
 
 const TRAY_ID: &str = "main-tray";
 
-/// トレイの「終了」からの明示的終了かどうかを保持するフラグ。
+/// Flag indicating whether the app is quitting explicitly via the tray's "Quit" item.
 pub struct AppQuitFlag(pub AtomicBool);
 
-/// トレイメニューを構築する。
+/// Builds the tray menu.
 pub fn build_tray_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
     let mut builder = MenuBuilder::new(app);
 
-    let open_item = MenuItemBuilder::with_id("open_manager", "管理画面を開く").build(app)?;
+    let open_item = MenuItemBuilder::with_id("open_manager", "Open Manager").build(app)?;
     builder = builder.item(&open_item).separator();
 
     let (widgets, autostart_cfg) = if let Some(state) = app.try_state::<Arc<ConfigState>>() {
@@ -30,7 +30,7 @@ pub fn build_tray_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
     };
 
     if widgets.is_empty() {
-        let empty_item = MenuItemBuilder::with_id("no_widgets", "(ガジェット未登録)")
+        let empty_item = MenuItemBuilder::with_id("no_widgets", "(No widgets registered)")
             .enabled(false)
             .build(app)?;
         builder = builder.item(&empty_item);
@@ -48,16 +48,16 @@ pub fn build_tray_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
         .is_enabled()
         .unwrap_or(autostart_cfg);
 
-    let lock_all_item = MenuItemBuilder::with_id("lock_all", "すべてロック").build(app)?;
+    let lock_all_item = MenuItemBuilder::with_id("lock_all", "Lock All").build(app)?;
     let unlock_all_item =
-        MenuItemBuilder::with_id("unlock_all", "すべてロック解除").build(app)?;
+        MenuItemBuilder::with_id("unlock_all", "Unlock All").build(app)?;
     let reload_all_item =
-        MenuItemBuilder::with_id("reload_all", "すべて再読み込み").build(app)?;
+        MenuItemBuilder::with_id("reload_all", "Reload All").build(app)?;
     let autostart_item =
-        CheckMenuItemBuilder::with_id("autostart", "Windows起動時に自動起動")
+        CheckMenuItemBuilder::with_id("autostart", "Launch at Windows startup")
             .checked(autostart_enabled)
             .build(app)?;
-    let quit_item = MenuItemBuilder::with_id("quit", "終了").build(app)?;
+    let quit_item = MenuItemBuilder::with_id("quit", "Quit").build(app)?;
 
     builder
         .separator()
@@ -70,7 +70,7 @@ pub fn build_tray_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
         .build()
 }
 
-/// トレイメニューを最新状態に再構築して反映する。
+/// Rebuilds the tray menu to reflect the latest state.
 pub fn refresh_tray_menu(app: &AppHandle) {
     if let Some(tray) = app.tray_by_id(TRAY_ID) {
         if let Ok(menu) = build_tray_menu(app) {
@@ -79,7 +79,7 @@ pub fn refresh_tray_menu(app: &AppHandle) {
     }
 }
 
-/// システムトレイを初期化する。
+/// Initializes the system tray.
 pub fn init_tray(app: &AppHandle) -> tauri::Result<()> {
     let menu = build_tray_menu(app)?;
     let mut builder = TrayIconBuilder::with_id(TRAY_ID)

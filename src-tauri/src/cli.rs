@@ -1,17 +1,17 @@
-/// CLI 引数の解析結果。
+/// Result of parsing CLI arguments.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct CliOptions {
-    /// 管理画面ウィンドウを開いて前面表示するか (`--manager`)。
+    /// Whether to open the manager window and bring it to the front (`--manager`).
     pub open_manager: bool,
-    /// 管理画面を開かず静かに起動するか (`--silent`)。
+    /// Whether to start quietly without opening the manager window (`--silent`).
     pub silent: bool,
-    /// 追加・表示する対象 URL (`--add-url <URL>`)。
+    /// Target URL to add and display (`--add-url <URL>`).
     pub add_url: Option<String>,
-    /// `--add-url` 時のガジェットタイトル (`--title <NAME>`)。
+    /// Widget title used with `--add-url` (`--title <NAME>`).
     pub title: Option<String>,
 }
 
-/// 実行ファイル名を除いた引数スライスから CLI オプションを解析する。
+/// Parses CLI options from an argument slice that excludes the executable name.
 pub fn parse_args(args: &[String]) -> CliOptions {
     let mut opts = CliOptions::default();
     let mut i = 0;
@@ -78,13 +78,13 @@ mod tests {
             "--add-url",
             "https://muse.ai/library/artifacts/sample",
             "--title",
-            "通勤電車 時刻表",
+            "Commuter Train Timetable",
         ]));
         assert_eq!(
             opts.add_url.as_deref(),
             Some("https://muse.ai/library/artifacts/sample")
         );
-        assert_eq!(opts.title.as_deref(), Some("通勤電車 時刻表"));
+        assert_eq!(opts.title.as_deref(), Some("Commuter Train Timetable"));
     }
 
     #[test]

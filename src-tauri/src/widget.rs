@@ -15,7 +15,7 @@ pub fn widget_label(widget_id: &str) -> String {
     format!("widget-{widget_id}")
 }
 
-/// ガジェット用 WebView ランタイムスクリプト（ホバー操作バー + リロードガード + カスタムCSS）を生成する。
+/// Generates the WebView runtime script for widgets (hover action bar + reload guard + custom CSS).
 fn build_widget_init_script(locked: bool, home_url: &str, custom_css: &str) -> String {
     let home_json = serde_json::to_string(home_url).unwrap_or_else(|_| "\"\"".to_string());
     let css_json = serde_json::to_string(custom_css).unwrap_or_else(|_| "\"\"".to_string());
@@ -127,7 +127,7 @@ fn build_widget_init_script(locked: bool, home_url: &str, custom_css: &str) -> S
     ].join(';');
 
     const dragArea = document.createElement('div');
-    dragArea.textContent = '⋮⋮ ドラッグで移動';
+    dragArea.textContent = '⋮⋮ Drag to move';
     dragArea.style.cssText = 'flex:1;cursor:move;display:flex;align-items:center;height:100%;';
     dragArea.addEventListener('mousedown', (e) => {{
       if (e.button !== 0 || isLocked) return;
@@ -151,10 +151,10 @@ fn build_widget_init_script(locked: bool, home_url: &str, custom_css: &str) -> S
       return b;
     }};
 
-    btnGroup.appendChild(mkBtn('⌂', 'ホームへ戻る', () => invokeAction('home')));
-    btnGroup.appendChild(mkBtn('↻', '再読み込み', () => invokeAction('reload')));
-    btnGroup.appendChild(mkBtn('🔒', 'ロックする', () => invokeAction('lock')));
-    btnGroup.appendChild(mkBtn('✕', '閉じる（非表示）', () => invokeAction('close')));
+    btnGroup.appendChild(mkBtn('⌂', 'Back to home', () => invokeAction('home')));
+    btnGroup.appendChild(mkBtn('↻', 'Reload', () => invokeAction('reload')));
+    btnGroup.appendChild(mkBtn('🔒', 'Lock', () => invokeAction('lock')));
+    btnGroup.appendChild(mkBtn('✕', 'Close (hide)', () => invokeAction('close')));
 
     bar.appendChild(dragArea);
     bar.appendChild(btnGroup);
@@ -189,7 +189,7 @@ fn build_widget_init_script(locked: bool, home_url: &str, custom_css: &str) -> S
     )
 }
 
-/// 独立した WebView2 `user_data_dir` を解決する（他アプリとのロック競合防止）。
+/// Resolves a dedicated WebView2 `user_data_dir` (prevents lock conflicts with other apps).
 pub fn resolve_webview_data_dir(app: &AppHandle) -> Result<PathBuf, String> {
     let base = app
         .path()
@@ -201,7 +201,7 @@ pub fn resolve_webview_data_dir(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(dir)
 }
 
-/// ガジェット設定から WebView の初期 URL を構築する。
+/// Builds the WebView's initial URL from the widget config.
 pub fn build_webview_url(widget: &WidgetConfig) -> Result<WebviewUrl, String> {
     match widget.source_type {
         SourceType::Url => {
@@ -217,7 +217,7 @@ pub fn build_webview_url(widget: &WidgetConfig) -> Result<WebviewUrl, String> {
     }
 }
 
-/// 遷移先 URL が初期 URL と同一オリジンまたは内部スキームかを判定する。
+/// Determines whether the navigation target URL is the same origin as the initial URL or an internal scheme.
 pub fn is_same_origin_or_internal(initial: &url::Url, target: &url::Url) -> bool {
     if matches!(target.scheme(), "about" | "data" | "blob") {
         return true;
@@ -227,7 +227,7 @@ pub fn is_same_origin_or_internal(initial: &url::Url, target: &url::Url) -> bool
         && initial.port_or_known_default() == target.port_or_known_default()
 }
 
-/// ガジェット設定に応じて配置モード（モードA: 最背面固定 / モードB: WorkerW 壁紙埋め込み）を適用する。
+/// Applies the placement mode (Mode A: pinned to bottom / Mode B: embedded in wallpaper via WorkerW) according to the widget config.
 pub fn apply_placement_mode(window: &tauri::WebviewWindow, widget: &WidgetConfig) {
     let w = widget.width.max(120);
     let h = widget.height.max(80);
@@ -246,7 +246,7 @@ pub fn apply_placement_mode(window: &tauri::WebviewWindow, widget: &WidgetConfig
     }
 }
 
-/// 既存ガジェットウィンドウにランタイム設定（配置モード・ロック・透明度・クリック透過・NOACTIVATE・ズーム・カスタムCSS）を適用する。
+/// Applies runtime settings (placement mode, lock, opacity, click-through, NOACTIVATE, zoom, custom CSS) to an existing widget window.
 pub fn apply_runtime_settings(app: &AppHandle, widget: &WidgetConfig) {
     let label = widget_label(&widget.id);
     let Some(window) = app.get_webview_window(&label) else {
@@ -277,7 +277,7 @@ pub fn apply_runtime_settings(app: &AppHandle, widget: &WidgetConfig) {
     }
 }
 
-/// ガジェットウィンドウを生成する（コマンド内からの呼び出し時のデッドロック防止のため async fn）。
+/// Creates a widget window (async fn to prevent deadlocks when called from within a command).
 pub async fn create_widget_window(app: AppHandle, widget: WidgetConfig) -> Result<(), String> {
     let label = widget_label(&widget.id);
     if app.get_webview_window(&label).is_some() {
@@ -366,13 +366,13 @@ pub async fn create_widget_window(app: AppHandle, widget: WidgetConfig) -> Resul
         .build()
         .map_err(|e| format!("failed to create widget window {label}: {e}"))?;
 
-    // 物理ピクセル座標で厳密に配置し、Moved イベントによる座標ズレを防ぐ
+    // Place strictly in physical pixel coordinates to prevent coordinate drift from Moved events
     let _ = window.set_position(Position::Physical(PhysicalPosition::new(
         widget.x, widget.y,
     )));
     let _ = window.set_size(Size::Physical(PhysicalSize::new(target_w, target_h)));
 
-    // 配置モード（モードA: 最背面固定 / モードB: WorkerW 埋め込み）と Win32 拡張スタイル適用
+    // Apply placement mode (Mode A: pinned to bottom / Mode B: embedded in WorkerW) and Win32 extended styles
     apply_placement_mode(&window, &widget);
     if let Err(e) = win32::apply_widget_styles(
         &window,
@@ -384,7 +384,7 @@ pub async fn create_widget_window(app: AppHandle, widget: WidgetConfig) -> Resul
     }
     let _ = window.set_zoom(widget.zoom.clamp(0.5, 2.0));
 
-    // 位置・サイズ変更時のデバウンス保存（WorkerW 子ウィンドウでも仮想スクリーン座標を保存）
+    // Debounced save on position/size changes (saves virtual-screen coordinates even for WorkerW child windows)
     let app_handle = app.clone();
     let widget_id = widget.id.clone();
     let win_for_events = window.clone();
@@ -417,7 +417,7 @@ pub async fn create_widget_window(app: AppHandle, widget: WidgetConfig) -> Resul
     Ok(())
 }
 
-/// ガジェットウィンドウを破棄（close）してメモリを解放する。
+/// Destroys (closes) the widget window to free memory.
 pub fn close_widget_window(app: &AppHandle, widget_id: &str) {
     let label = widget_label(widget_id);
     if let Some(win) = app.get_webview_window(&label) {
@@ -425,7 +425,7 @@ pub fn close_widget_window(app: &AppHandle, widget_id: &str) {
     }
 }
 
-/// 指定ガジェットウィンドウを再読み込みする。
+/// Reloads the specified widget window.
 pub fn reload_widget_window(app: &AppHandle, widget_id: &str) {
     let label = widget_label(widget_id);
     if let Some(win) = app.get_webview_window(&label) {
@@ -433,7 +433,7 @@ pub fn reload_widget_window(app: &AppHandle, widget_id: &str) {
     }
 }
 
-/// 指定ガジェットウィンドウをリロードガード付きで再読み込みする。
+/// Reloads the specified widget window with the reload guard.
 pub fn safe_reload_widget_window(app: &AppHandle, widget_id: &str) {
     let label = widget_label(widget_id);
     if let Some(win) = app.get_webview_window(&label) {
@@ -441,7 +441,7 @@ pub fn safe_reload_widget_window(app: &AppHandle, widget_id: &str) {
     }
 }
 
-/// 表示中の全ガジェットウィンドウをリロードガード付きで再読み込みする。
+/// Reloads all visible widget windows with the reload guard.
 pub fn reload_all_widget_windows(app: &AppHandle) {
     for (label, win) in app.webview_windows() {
         if label.starts_with("widget-") {
@@ -451,7 +451,7 @@ pub fn reload_all_widget_windows(app: &AppHandle) {
     }
 }
 
-/// モード B（WorkerW 埋め込み）の全ガジェットを再アタッチする。
+/// Re-attaches all Mode B (WorkerW-embedded) widgets.
 pub fn reattach_workerw_widgets(app: &AppHandle) {
     let widgets = {
         let Some(state) = app.try_state::<Arc<ConfigState>>() else {
@@ -481,11 +481,11 @@ pub fn reattach_workerw_widgets(app: &AppHandle) {
     }
 }
 
-/// Explorer 再起動（TaskbarCreated）および壁紙変更による WorkerW 再生成を監視し、自動再アタッチする。
+/// Watches for Explorer restarts (TaskbarCreated) and WorkerW recreation caused by wallpaper changes, and re-attaches automatically.
 pub fn start_workerw_watcher(app: AppHandle) {
     let app_for_msg = app.clone();
     win32::start_taskbar_created_listener(move || {
-        // Explorer 再起動直後は WorkerW 構築に少し時間がかかる場合があるため、少し待ってから再アタッチ
+        // WorkerW construction can take a moment right after an Explorer restart, so wait briefly before re-attaching
         let app_inner = app_for_msg.clone();
         std::thread::spawn(move || {
             std::thread::sleep(Duration::from_millis(800));
@@ -493,14 +493,14 @@ pub fn start_workerw_watcher(app: AppHandle) {
         });
     });
 
-    // 壁紙スライドショー切替や Win11 での WorkerW 再生成向けの定期生存監視（3秒ごと）
+    // Periodic liveness check (every 3 seconds) for wallpaper slideshow switches and WorkerW recreation on Win11
     std::thread::spawn(move || loop {
         std::thread::sleep(Duration::from_secs(3));
         reattach_workerw_widgets(&app);
     });
 }
 
-/// 定期自動リロードループを起動する（30秒ごとに経過間隔をチェック）。
+/// Starts the periodic auto-reload loop (checks elapsed intervals every 30 seconds).
 pub fn start_auto_reload_loop(app: AppHandle) {
     std::thread::spawn(move || {
         let mut last_reloaded: HashMap<String, Instant> = HashMap::new();
@@ -533,7 +533,7 @@ pub fn start_auto_reload_loop(app: AppHandle) {
     });
 }
 
-/// 設定されている全ガジェットの有効状態に合わせてウィンドウを同期する。
+/// Syncs windows to match the enabled state of all configured widgets.
 pub async fn sync_all_widgets(app: AppHandle) {
     let widgets = {
         let Some(state) = app.try_state::<Arc<ConfigState>>() else {
@@ -556,7 +556,7 @@ pub async fn sync_all_widgets(app: AppHandle) {
     }
 }
 
-/// ローカル HTML (`source_type: "file"`) 用カスタムプロトコル `widgetfile` のハンドラ。
+/// Handler for the custom `widgetfile` protocol used by local HTML (`source_type: "file"`).
 pub fn handle_widgetfile_protocol(
     app: &AppHandle,
     request: tauri::http::Request<Vec<u8>>,

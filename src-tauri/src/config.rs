@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tauri::{AppHandle, Manager};
 
-/// 配置モード（グローバル設定）。
+/// Placement mode (global setting).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum PlacementMode {
@@ -16,7 +16,7 @@ pub enum PlacementMode {
     WorkerW,
 }
 
-/// ガジェットのソース種別。
+/// Widget source type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum SourceType {
@@ -25,7 +25,7 @@ pub enum SourceType {
     File,
 }
 
-/// 個別ガジェットの設定。
+/// Settings for an individual widget.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct WidgetConfig {
@@ -76,7 +76,7 @@ impl Default for WidgetConfig {
     }
 }
 
-/// アプリ全体の設定 (`config.json`)。
+/// App-wide settings (`config.json`).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct AppConfig {
@@ -97,7 +97,7 @@ impl Default for AppConfig {
     }
 }
 
-/// 共有状態と原子的・デバウンス永続化を管理するストア。
+/// Store that manages shared state along with atomic, debounced persistence.
 pub struct ConfigState {
     pub config: Mutex<AppConfig>,
     pub config_path: PathBuf,
@@ -105,7 +105,7 @@ pub struct ConfigState {
 }
 
 impl ConfigState {
-    /// 設定ファイルを読み込んでストアを初期化する（破損時は `.bak` へフォールバック）。
+    /// Loads the config file and initializes the store (falls back to `.bak` if corrupted).
     pub fn load_or_init(app: &AppHandle) -> Result<Self, String> {
         let dir = app
             .path()
@@ -125,7 +125,7 @@ impl ConfigState {
         })
     }
 
-    /// 現在の設定を即時・原子的に保存する。
+    /// Saves the current config immediately and atomically.
     pub fn save_now(&self) -> Result<(), String> {
         let snapshot = {
             let guard = self.config.lock().map_err(|e| format!("lock poisoned: {e}"))?;
@@ -134,14 +134,14 @@ impl ConfigState {
         save_atomic_with_backup(&self.config_path, &snapshot)
     }
 
-    /// 位置・サイズ変更など高頻度更新向けにデバウンス（500ms）して保存する。
+    /// Saves with a 500ms debounce, intended for high-frequency updates such as position/size changes.
     pub fn schedule_debounced_save(state: &Arc<Self>) {
-        let gen = state.save_generation.fetch_add(1, Ordering::SeqCst) + 1;
+        let generation = state.save_generation.fetch_add(1, Ordering::SeqCst) + 1;
         let state_cloned = Arc::clone(state);
 
         std::thread::spawn(move || {
             std::thread::sleep(Duration::from_millis(500));
-            if state_cloned.save_generation.load(Ordering::SeqCst) == gen {
+            if state_cloned.save_generation.load(Ordering::SeqCst) == generation {
                 if let Err(e) = state_cloned.save_now() {
                     eprintln!("[ConfigState] debounced save failed: {e}");
                 }
@@ -150,7 +150,7 @@ impl ConfigState {
     }
 }
 
-/// `config.json` を読み込み、失敗した場合は `config.json.bak` へフォールバックする。
+/// Reads `config.json`, and falls back to `config.json.bak` if that fails.
 pub fn load_with_backup_fallback(config_path: &Path) -> AppConfig {
     if let Ok(text) = fs::read_to_string(config_path) {
         if let Ok(cfg) = serde_json::from_str::<AppConfig>(&text) {
@@ -173,7 +173,7 @@ pub fn load_with_backup_fallback(config_path: &Path) -> AppConfig {
     AppConfig::default()
 }
 
-/// `config.json.tmp` へ書き込んで `sync_all()` 後、既存を `.bak` に退避して原子的リネーム置換する。
+/// Writes to `config.json.tmp` and calls `sync_all()`, then moves the existing file aside as `.bak` and replaces it via an atomic rename.
 pub fn save_atomic_with_backup(config_path: &Path, config: &AppConfig) -> Result<(), String> {
     if let Some(parent) = config_path.parent() {
         fs::create_dir_all(parent)
@@ -194,7 +194,7 @@ pub fn save_atomic_with_backup(config_path: &Path, config: &AppConfig) -> Result
             .map_err(|e| format!("failed to sync {}: {e}", tmp_path.display()))?;
     }
 
-    // 既存の正常ファイルを 1 世代バックアップとして退避
+    // Keep the existing valid file as a one-generation backup
     if config_path.exists() {
         if let Ok(existing_text) = fs::read_to_string(config_path) {
             if serde_json::from_str::<AppConfig>(&existing_text).is_ok() {
@@ -203,8 +203,8 @@ pub fn save_atomic_with_backup(config_path: &Path, config: &AppConfig) -> Result
         }
     }
 
-    // Windows では既存ファイルへの rename が上書き失敗する場合があるため、
-    // 置換前に既存を削除するか、または一旦バックアップ済みなので置換する
+    // On Windows, renaming over an existing file can fail to overwrite,
+    // so remove the existing file before replacing it (it has already been backed up)
     if config_path.exists() {
         fs::remove_file(config_path)
             .map_err(|e| format!("failed to remove old {}: {e}", config_path.display()))?;
@@ -249,11 +249,11 @@ mod tests {
         cfg2.widgets[0].title = "Second".to_string();
         save_atomic_with_backup(&cfg_path, &cfg2).unwrap();
 
-        // .bak には 1 世代前の "First" が残っている
+        // .bak still holds "First" from one generation ago
         let loaded = load_with_backup_fallback(&cfg_path);
         assert_eq!(loaded.widgets[0].title, "Second");
 
-        // config.json を破損させると .bak ("First") にフォールバックする
+        // Corrupting config.json makes it fall back to .bak ("First")
         fs::write(&cfg_path, "{ corrupted json !!!").unwrap();
         let recovered = load_with_backup_fallback(&cfg_path);
         assert_eq!(recovered.widgets[0].title, "First");

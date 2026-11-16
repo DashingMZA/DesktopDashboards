@@ -14,7 +14,7 @@ use tauri::{
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
 use tray::AppQuitFlag;
 
-/// 管理画面ウィンドウを前面表示する。
+/// Brings the manager window to the front.
 pub fn show_manager_window(app: &AppHandle) {
     if let Some(win) = app.get_webview_window("manager") {
         let _ = win.unminimize();
@@ -23,7 +23,7 @@ pub fn show_manager_window(app: &AppHandle) {
     }
 }
 
-/// 2つの矩形が重なっているか（AABB 交差判定）と重複面積を計算する。
+/// Checks whether two rectangles overlap (AABB intersection test) and computes the overlap area.
 fn overlap_area(ax: i32, ay: i32, aw: i32, ah: i32, bx: i32, by: i32, bw: i32, bh: i32) -> i64 {
     let ix = (ax + aw).min(bx + bw) - ax.max(bx);
     let iy = (ay + ah).min(by + bh) - ay.max(by);
@@ -34,7 +34,7 @@ fn overlap_area(ax: i32, ay: i32, aw: i32, ah: i32, bx: i32, by: i32, bw: i32, b
     }
 }
 
-/// 既存ガジェットと重ならない新規追加用の初期座標（非重複・空きスペース優先配置）を計算する。
+/// Computes an initial position for a newly added widget that does not overlap existing widgets (non-overlapping, prefers free space).
 fn next_non_overlapping_position(
     mon_x: i32,
     mon_y: i32,
@@ -55,7 +55,7 @@ fn next_non_overlapping_position(
         y_candidates.push(w.y + w.height as i32 + gap);
     }
 
-    // グリッド候補も追加（空きスペースを細かく探索するため）
+    // Also add grid candidates (to search free space more finely)
     let mut gx = mon_x + margin;
     while gx + new_w <= mon_x + mon_w - margin {
         x_candidates.push(gx);
@@ -135,7 +135,7 @@ fn next_cascade_position(app: &AppHandle, widgets: &[WidgetConfig]) -> (i32, i32
     next_non_overlapping_position(mx, my, mw, mh, default_w, default_h, widgets)
 }
 
-/// `--add-url` で指定された URL を追加または既存を有効化して表示する。
+/// Adds the URL given via `--add-url`, or enables the existing widget for it, and shows it.
 pub async fn add_or_activate_url_widget(
     app: AppHandle,
     url: String,
@@ -192,7 +192,7 @@ pub async fn add_or_activate_url_widget(
     Ok(target_widget)
 }
 
-/// ガジェットの表示/非表示を切り替える共通処理（コマンド・トレイ両用）。
+/// Shared logic for toggling widget visibility (used by both commands and the tray).
 pub async fn toggle_widget_internal(
     app: AppHandle,
     id: String,
@@ -225,7 +225,7 @@ pub async fn toggle_widget_internal(
     Ok(())
 }
 
-/// 全ガジェットのロック状態を一括変更する（トレイメニュー用）。
+/// Changes the lock state of all widgets at once (for the tray menu).
 pub fn set_all_widgets_locked(app: &AppHandle, locked: bool) -> Result<(), String> {
     let state = app
         .try_state::<Arc<ConfigState>>()
@@ -252,7 +252,7 @@ pub fn set_all_widgets_locked(app: &AppHandle, locked: bool) -> Result<(), Strin
     Ok(())
 }
 
-/// 起動時または 2 つ目のプロセスから受け取った CLI オプションを処理する。
+/// Handles CLI options received at startup or from a second process.
 fn handle_cli_options(app: &AppHandle, opts: cli::CliOptions, is_secondary_instance: bool) {
     if opts.open_manager
         || (!is_secondary_instance && !opts.silent)
@@ -299,7 +299,7 @@ async fn add_widget(
 ) -> Result<WidgetConfig, String> {
     let trimmed_source = source.trim().to_string();
     if trimmed_source.is_empty() {
-        return Err("URL またはファイルパスを入力してください".to_string());
+        return Err("Please enter a URL or file path".to_string());
     }
 
     if source_type == SourceType::Url {
@@ -308,7 +308,7 @@ async fn add_widget(
 
     let path = std::path::Path::new(&trimmed_source);
     if !path.is_file() {
-        return Err(format!("ファイルが見つかりません: {trimmed_source}"));
+        return Err(format!("File not found: {trimmed_source}"));
     }
 
     let derived_title = if title.trim().is_empty() {
