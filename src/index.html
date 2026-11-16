@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DesktopDashboards - M0 Spike</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      font-family: "Segoe UI", "Yu Gothic UI", sans-serif;
+    }
+    body {
+      margin: 0;
+      padding: 20px;
+      background: #14171c;
+      color: #f0f4f8;
+      line-height: 1.5;
+    }
+    h1 {
+      font-size: 18px;
+      margin: 0 0 8px;
+    }
+    p.desc {
+      font-size: 13px;
+      color: #9aa5b1;
+      margin: 0 0 16px;
+    }
+    .card {
+      background: #1e232b;
+      border: 1px solid #2e3540;
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+    label {
+      display: block;
+      font-size: 12px;
+      color: #cbd2d9;
+      margin-bottom: 6px;
+    }
+    input[type="text"] {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: 1px solid #3e4756;
+      background: #101318;
+      color: #f8fafc;
+      font-size: 13px;
+    }
+    .actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+    button {
+      padding: 8px 14px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    button.primary {
+      background: #2563eb;
+      color: #fff;
+    }
+    button.secondary {
+      background: #334155;
+      color: #f1f5f9;
+    }
+    button:hover {
+      opacity: 0.92;
+    }
+    .meta {
+      font-size: 12px;
+      color: #9aa5b1;
+      word-break: break-all;
+    }
+    #status {
+      margin-top: 10px;
+      font-size: 12px;
+      color: #34d399;
+      min-height: 18px;
+    }
+    #status.error {
+      color: #f87171;
+    }
+  </style>
+</head>
+<body>
+  <h1>DesktopDashboards — M0 スパイク検証</h1>
+  <p class="desc">
+    独立した WebView2 プロファイル（<code>user_data_dir</code>）で <code>muse.ai</code> へのログインおよびスペース表示・操作ができるかを確認します。
+  </p>
+
+  <div class="card">
+    <label for="url-input">検証する URL</label>
+    <input
+      id="url-input"
+      type="text"
+      value="https://muse.ai/library/artifacts/tong-qin-dian-che-shi-ke-biao"
+    />
+    <div class="actions">
+      <button class="primary" id="btn-normal">通常ウィンドウで開く（ログイン検証）</button>
+      <button class="secondary" id="btn-gadget">枠なし・最背面で開く（ガジェット検証）</button>
+    </div>
+    <div id="status"></div>
+  </div>
+
+  <div class="card">
+    <div class="meta">WebView2 プロファイル保存先:</div>
+    <div class="meta" id="data-dir">読み込み中...</div>
+  </div>
+
+  <script>
+    const invoke = window.__TAURI__.core.invoke;
+    const urlInput = document.getElementById("url-input");
+    const statusEl = document.getElementById("status");
+    const dataDirEl = document.getElementById("data-dir");
+
+    function setStatus(msg, isError = false) {
+      statusEl.textContent = msg;
+      statusEl.className = isError ? "error" : "";
+    }
+
+    async function launchWidget(alwaysOnBottom, decorations) {
+      const url = urlInput.value.trim();
+      if (!url) {
+        setStatus("URL を入力してください。", true);
+        return;
+      }
+      try {
+        const label = await invoke("open_spike_widget", {
+          url,
+          alwaysOnBottom,
+          decorations,
+        });
+        setStatus(`ウィンドウを開きました: ${label}`);
+      } catch (err) {
+        setStatus(`エラー: ${err}`, true);
+      }
+    }
+
+    document.getElementById("btn-normal").addEventListener("click", () => launchWidget(false, true));
+    document.getElementById("btn-gadget").addEventListener("click", () => launchWidget(true, false));
+
+    invoke("get_webview_data_dir")
+      .then((dir) => {
+        dataDirEl.textContent = dir;
+      })
+      .catch((err) => {
+        dataDirEl.textContent = `取得失敗: ${err}`;
+      });
+  </script>
+</body>
+</html>
