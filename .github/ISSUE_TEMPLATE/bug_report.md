@@ -7,32 +7,28 @@ assignees: ''
 
 ---
 
-**Describe the bug**
+## Describe the bug
 A clear and concise description of what the bug is.
 
-**To Reproduce**
-Steps to reproduce the behavior:
-1. Go to '...'
-2. Click on '....'
-3. Scroll down to '....'
-4. See error
+> Please write your issue in English.
 
-**Expected behavior**
+## Steps to reproduce
+1. Go to '...'
+2. Click on '...'
+3. See the error
+
+## Expected behavior
 A clear and concise description of what you expected to happen.
 
-**Screenshots**
+## Screenshots
 If applicable, add screenshots to help explain your problem.
 
-**Desktop (please complete the following information):**
- - OS: [e.g. iOS]
- - Browser [e.g. chrome, safari]
- - Version [e.g. 22]
+## Environment
+- App version: <!-- e.g. v0.1.0, from Settings or the version badge -->
+- Windows version: <!-- e.g. Windows 11 24H2 -->
+- Install type: <!-- Installer (.exe) / Portable ZIP / Dev build (`pnpm dev`) -->
 
-**Smartphone (please complete the following information):**
- - Device: [e.g. iPhone6]
- - OS: [e.g. iOS8.1]
- - Browser [e.g. stock browser, safari]
- - Version [e.g. 22]
+<!-- Remove any personal information (tokens, URLs with secrets) before pasting. -->
 
-**Additional context**
+## Additional context
 Add any other context about the problem here.
