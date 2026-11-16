@@ -6,6 +6,23 @@
 
 A lightweight desktop gadget app built with Tauri v2 + WebView2 that lets you keep multiple arbitrary web apps, AI artifacts (such as Muse Spaces), and local HTML files resident on your Windows desktop (at the very back / in the wallpaper layer).
 
+<div align="center">
+  <table>
+    <tr>
+      <td align="center" width="40%">
+        <b>✨ Mascot state (resident on the desktop)</b><br />
+        <img src="docs/screenshot_mascot.png" alt="Desktop Mascot for Muse Mode" width="300" />
+      </td>
+      <td align="center" width="60%">
+        <b>💬 DesktopDashboards Panel</b><br />
+        <img src="docs/screenshot_session.png" alt="Muse AI Session Chat Screen" width="500" />
+      </td>
+    </tr>
+  </table>
+</div>
+
+---
+
 ## 🌟 Key Features (Phases 1–3 implemented)
 
 - **General-purpose web desktop gadgets**: Display web URLs and local HTML files (via the `widgetfile` custom protocol) as desktop widgets
