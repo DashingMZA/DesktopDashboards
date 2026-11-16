@@ -15,9 +15,10 @@ pub fn widget_label(widget_id: &str) -> String {
     format!("widget-{widget_id}")
 }
 
-/// ガジェット用 WebView ランタイムスクリプト（ホバー操作バー + リロードガード）を生成する。
-fn build_widget_init_script(locked: bool, home_url: &str) -> String {
+/// ガジェット用 WebView ランタイムスクリプト（ホバー操作バー + リロードガード + カスタムCSS）を生成する。
+fn build_widget_init_script(locked: bool, home_url: &str, custom_css: &str) -> String {
     let home_json = serde_json::to_string(home_url).unwrap_or_else(|_| "\"\"".to_string());
+    let css_json = serde_json::to_string(custom_css).unwrap_or_else(|_| "\"\"".to_string());
     let locked_str = if locked { "true" } else { "false" };
 
     format!(
@@ -28,9 +29,11 @@ fn build_widget_init_script(locked: bool, home_url: &str) -> String {
 
   const HOME_URL = {home_json};
   let isLocked = {locked_str};
+  let currentCustomCss = {css_json};
   let lastInteractionAt = 0;
   let pendingReloadTimer = null;
   let hostEl = null;
+  let styleEl = null;
 
   const markInteraction = () => {{ lastInteractionAt = Date.now(); }};
   document.addEventListener('pointerdown', markInteraction, true);
@@ -69,6 +72,20 @@ fn build_widget_init_script(locked: bool, home_url: &str) -> String {
     }}
   }};
 
+  window.__ddApplyCustomCss = (css) => {{
+    currentCustomCss = typeof css === 'string' ? css : '';
+    const target = document.head || document.documentElement || document.body;
+    if (!target) return;
+    let existingStyle = document.getElementById('__dd_custom_css');
+    if (!existingStyle) {{
+      existingStyle = document.createElement('style');
+      existingStyle.id = '__dd_custom_css';
+      target.appendChild(existingStyle);
+    }}
+    styleEl = existingStyle;
+    styleEl.textContent = currentCustomCss;
+  }};
+
   function invokeAction(action) {{
     if (window.__TAURI_INTERNALS__ && typeof window.__TAURI_INTERNALS__.invoke === 'function') {{
       window.__TAURI_INTERNALS__.invoke('widget_bar_action', {{ action }}).catch(() => {{}});
@@ -76,6 +93,7 @@ fn build_widget_init_script(locked: bool, home_url: &str) -> String {
   }}
 
   function install() {{
+    window.__ddApplyCustomCss(currentCustomCss);
     const parent = document.documentElement || document.body;
     if (!parent) return;
     const existing = document.getElementById('__dd_drag_host');
@@ -158,10 +176,12 @@ fn build_widget_init_script(locked: bool, home_url: &str) -> String {
     const obs = new MutationObserver(() => {{
       if (!document.getElementById('__dd_drag_host')) {{
         install();
+      }} else if (currentCustomCss && !document.getElementById('__dd_custom_css')) {{
+        window.__ddApplyCustomCss(currentCustomCss);
       }}
     }});
     if (document.documentElement) {{
-      obs.observe(document.documentElement, {{ childList: true }});
+      obs.observe(document.documentElement, {{ childList: true, subtree: true }});
     }}
   }} catch (_) {{}}
 }})();
@@ -207,12 +227,33 @@ pub fn is_same_origin_or_internal(initial: &url::Url, target: &url::Url) -> bool
         && initial.port_or_known_default() == target.port_or_known_default()
 }
 
-/// 既存ガジェットウィンドウにランタイム設定（ロック・透明度・クリック透過・NOACTIVATE・ズーム）を適用する。
+/// ガジェット設定に応じて配置モード（モードA: 最背面固定 / モードB: WorkerW 壁紙埋め込み）を適用する。
+pub fn apply_placement_mode(window: &tauri::WebviewWindow, widget: &WidgetConfig) {
+    let w = widget.width.max(120);
+    let h = widget.height.max(80);
+    match widget.placement_mode {
+        PlacementMode::Bottom => {
+            if let Err(e) = win32::apply_bottom_mode_with_pos(window, widget.x, widget.y, w, h) {
+                eprintln!("[widget] apply_bottom_mode failed: {e}");
+            }
+        }
+        PlacementMode::WorkerW => {
+            if let Err(e) = win32::apply_workerw_mode(window, widget.x, widget.y, w, h) {
+                eprintln!("[widget] apply_workerw_mode failed (fallback to Bottom): {e}");
+                let _ = win32::apply_bottom_mode_with_pos(window, widget.x, widget.y, w, h);
+            }
+        }
+    }
+}
+
+/// 既存ガジェットウィンドウにランタイム設定（配置モード・ロック・透明度・クリック透過・NOACTIVATE・ズーム・カスタムCSS）を適用する。
 pub fn apply_runtime_settings(app: &AppHandle, widget: &WidgetConfig) {
     let label = widget_label(&widget.id);
     let Some(window) = app.get_webview_window(&label) else {
         return;
     };
+
+    apply_placement_mode(&window, widget);
 
     let _ = window.set_resizable(!widget.locked);
     let _ = window.set_zoom(widget.zoom.clamp(0.5, 2.0));
@@ -220,6 +261,11 @@ pub fn apply_runtime_settings(app: &AppHandle, widget: &WidgetConfig) {
         "window.__ddSetLocked && window.__ddSetLocked({});",
         if widget.locked { "true" } else { "false" }
     ));
+    if let Ok(css_json) = serde_json::to_string(&widget.custom_css) {
+        let _ = window.eval(&format!(
+            "window.__ddApplyCustomCss && window.__ddApplyCustomCss({css_json});"
+        ));
+    }
 
     if let Err(e) = win32::apply_widget_styles(
         &window,
@@ -259,7 +305,7 @@ pub async fn create_widget_window(app: AppHandle, widget: WidgetConfig) -> Resul
         .max(1.0);
     let target_w = widget.width.max(120);
     let target_h = widget.height.max(80);
-    let init_script = build_widget_init_script(widget.locked, &home_url_str);
+    let init_script = build_widget_init_script(widget.locked, &home_url_str, &widget.custom_css);
 
     let mut builder = WebviewWindowBuilder::new(&app, &label, webview_url)
         .title(&widget.title)
@@ -285,6 +331,11 @@ pub async fn create_widget_window(app: AppHandle, widget: WidgetConfig) -> Resul
                                     "window.__ddSetLocked && window.__ddSetLocked({});",
                                     if w.locked { "true" } else { "false" }
                                 ));
+                                if let Ok(css_json) = serde_json::to_string(&w.custom_css) {
+                                    let _ = win.eval(&format!(
+                                        "window.__ddApplyCustomCss && window.__ddApplyCustomCss({css_json});"
+                                    ));
+                                }
                             }
                         }
                     }
@@ -321,11 +372,8 @@ pub async fn create_widget_window(app: AppHandle, widget: WidgetConfig) -> Resul
     )));
     let _ = window.set_size(Size::Physical(PhysicalSize::new(target_w, target_h)));
 
-    // 最背面固定および Win32 拡張スタイル（透明度・クリック透過・NOACTIVATE）適用
-    let _ = PlacementMode::Bottom;
-    if let Err(e) = win32::apply_bottom_mode(&window) {
-        eprintln!("[widget] failed to apply bottom mode to {label}: {e}");
-    }
+    // 配置モード（モードA: 最背面固定 / モードB: WorkerW 埋め込み）と Win32 拡張スタイル適用
+    apply_placement_mode(&window, &widget);
     if let Err(e) = win32::apply_widget_styles(
         &window,
         widget.opacity,
@@ -336,12 +384,16 @@ pub async fn create_widget_window(app: AppHandle, widget: WidgetConfig) -> Resul
     }
     let _ = window.set_zoom(widget.zoom.clamp(0.5, 2.0));
 
-    // 位置・サイズ変更時のデバウンス保存
+    // 位置・サイズ変更時のデバウンス保存（WorkerW 子ウィンドウでも仮想スクリーン座標を保存）
     let app_handle = app.clone();
     let widget_id = widget.id.clone();
+    let win_for_events = window.clone();
     window.on_window_event(move |event| match event {
-        WindowEvent::Moved(pos) => {
-            if pos.x <= -16000 || pos.y <= -16000 {
+        WindowEvent::Moved(_) | WindowEvent::Resized(_) => {
+            let Some((sx, sy, sw, sh)) = win32::get_window_screen_rect(&win_for_events) else {
+                return;
+            };
+            if sx <= -16000 || sy <= -16000 || sw == 0 || sh == 0 {
                 return;
             }
             if let Some(state) = app_handle.try_state::<Arc<ConfigState>>() {
@@ -350,25 +402,10 @@ pub async fn create_widget_window(app: AppHandle, widget: WidgetConfig) -> Resul
                         if w.locked {
                             return;
                         }
-                        w.x = pos.x;
-                        w.y = pos.y;
-                    }
-                }
-                ConfigState::schedule_debounced_save(state.inner());
-            }
-        }
-        WindowEvent::Resized(size) => {
-            if size.width == 0 || size.height == 0 {
-                return;
-            }
-            if let Some(state) = app_handle.try_state::<Arc<ConfigState>>() {
-                if let Ok(mut cfg) = state.config.lock() {
-                    if let Some(w) = cfg.widgets.iter_mut().find(|w| w.id == widget_id) {
-                        if w.locked {
-                            return;
-                        }
-                        w.width = size.width;
-                        w.height = size.height;
+                        w.x = sx;
+                        w.y = sy;
+                        w.width = sw;
+                        w.height = sh;
                     }
                 }
                 ConfigState::schedule_debounced_save(state.inner());
@@ -412,6 +449,55 @@ pub fn reload_all_widget_windows(app: &AppHandle) {
                 win.eval("window.__ddSafeReload ? window.__ddSafeReload() : location.reload();");
         }
     }
+}
+
+/// モード B（WorkerW 埋め込み）の全ガジェットを再アタッチする。
+pub fn reattach_workerw_widgets(app: &AppHandle) {
+    let widgets = {
+        let Some(state) = app.try_state::<Arc<ConfigState>>() else {
+            return;
+        };
+        let Ok(cfg) = state.config.lock() else {
+            return;
+        };
+        cfg.widgets.clone()
+    };
+
+    for w in widgets {
+        if w.enabled && w.placement_mode == PlacementMode::WorkerW {
+            let label = widget_label(&w.id);
+            if let Some(win) = app.get_webview_window(&label) {
+                if !win32::is_attached_to_current_workerw(&win) {
+                    apply_placement_mode(&win, &w);
+                    let _ = win32::apply_widget_styles(
+                        &win,
+                        w.opacity,
+                        w.click_through,
+                        w.no_activate,
+                    );
+                }
+            }
+        }
+    }
+}
+
+/// Explorer 再起動（TaskbarCreated）および壁紙変更による WorkerW 再生成を監視し、自動再アタッチする。
+pub fn start_workerw_watcher(app: AppHandle) {
+    let app_for_msg = app.clone();
+    win32::start_taskbar_created_listener(move || {
+        // Explorer 再起動直後は WorkerW 構築に少し時間がかかる場合があるため、少し待ってから再アタッチ
+        let app_inner = app_for_msg.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(800));
+            reattach_workerw_widgets(&app_inner);
+        });
+    });
+
+    // 壁紙スライドショー切替や Win11 での WorkerW 再生成向けの定期生存監視（3秒ごと）
+    std::thread::spawn(move || loop {
+        std::thread::sleep(Duration::from_secs(3));
+        reattach_workerw_widgets(&app);
+    });
 }
 
 /// 定期自動リロードループを起動する（30秒ごとに経過間隔をチェック）。

@@ -47,6 +47,7 @@ pub struct WidgetConfig {
     pub auto_reload_minutes: u32,
     pub hide_scrollbar: bool,
     pub custom_css: String,
+    pub placement_mode: PlacementMode,
 }
 
 impl Default for WidgetConfig {
@@ -70,6 +71,7 @@ impl Default for WidgetConfig {
             auto_reload_minutes: 0,
             hide_scrollbar: false,
             custom_css: String::new(),
+            placement_mode: PlacementMode::Bottom,
         }
     }
 }

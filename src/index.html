@@ -118,6 +118,34 @@
       padding: 3px 6px;
       font-size: 11px;
     }
+    details.css-details {
+      border-top: 1px solid #222936;
+      padding-top: 6px;
+      font-size: 11px;
+      color: #94a3b8;
+    }
+    details.css-details summary {
+      cursor: pointer;
+      user-select: none;
+    }
+    .css-editor-wrap {
+      margin-top: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .css-editor-wrap textarea {
+      width: 100%;
+      min-height: 68px;
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px solid #384252;
+      background: #0f1217;
+      color: #e2e8f0;
+      font-family: Consolas, "Cascadia Code", monospace;
+      font-size: 11px;
+      resize: vertical;
+    }
     button {
       padding: 8px 12px;
       border-radius: 6px;
@@ -518,24 +546,28 @@
         settingsGrid.className = "settings-grid";
 
         const stateDraft = {
+          placementMode: w.placement_mode || "bottom",
           locked: !!w.locked,
           clickThrough: !!w.click_through,
           noActivate: !!w.no_activate,
           opacity: typeof w.opacity === "number" ? w.opacity : 1.0,
           zoom: typeof w.zoom === "number" ? w.zoom : 1.0,
           autoReloadMinutes: typeof w.auto_reload_minutes === "number" ? w.auto_reload_minutes : 0,
+          customCss: typeof w.custom_css === "string" ? w.custom_css : "",
         };
 
         const saveSettings = async () => {
           try {
             await invoke("update_widget_settings", {
               id: w.id,
+              placementMode: stateDraft.placementMode,
               locked: stateDraft.locked,
               clickThrough: stateDraft.clickThrough,
               noActivate: stateDraft.noActivate,
               opacity: stateDraft.opacity,
               zoom: stateDraft.zoom,
               autoReloadMinutes: stateDraft.autoReloadMinutes,
+              customCss: stateDraft.customCss,
             });
           } catch (err) {
             setStatus(`設定更新エラー: ${err}`, true);
@@ -624,10 +656,60 @@
         reloadWrap.appendChild(reloadSel);
         settingsGrid.appendChild(reloadWrap);
 
+        const modeWrap = document.createElement("label");
+        modeWrap.className = "slider-field";
+        const modeSel = document.createElement("select");
+        for (const [val, label] of [
+          ["bottom", "モードA: 最背面固定"],
+          ["worker_w", "モードB: 壁紙埋め込み (WorkerW)"],
+        ]) {
+          const opt = document.createElement("option");
+          opt.value = val;
+          opt.textContent = label;
+          if (val === stateDraft.placementMode) opt.selected = true;
+          modeSel.appendChild(opt);
+        }
+        modeSel.addEventListener("change", () => {
+          stateDraft.placementMode = modeSel.value;
+          saveSettings();
+        });
+        modeWrap.appendChild(document.createTextNode("配置"));
+        modeWrap.appendChild(modeSel);
+        settingsGrid.appendChild(modeWrap);
+
+        const cssDetails = document.createElement("details");
+        cssDetails.className = "css-details";
+        const cssSummary = document.createElement("summary");
+        cssSummary.textContent = stateDraft.customCss.trim()
+          ? "カスタム CSS（設定あり）"
+          : "カスタム CSS";
+        const cssWrap = document.createElement("div");
+        cssWrap.className = "css-editor-wrap";
+        const cssArea = document.createElement("textarea");
+        cssArea.placeholder = "例: body { background: transparent !important; }";
+        cssArea.value = stateDraft.customCss;
+        const cssActions = document.createElement("div");
+        cssActions.style.display = "flex";
+        cssActions.style.justifyContent = "flex-end";
+        const btnCssApply = document.createElement("button");
+        btnCssApply.className = "secondary";
+        btnCssApply.textContent = "CSS 適用";
+        btnCssApply.addEventListener("click", async () => {
+          stateDraft.customCss = cssArea.value;
+          await saveSettings();
+          setStatus(`「${w.title}」にカスタム CSS を適用しました。`);
+        });
+        cssActions.appendChild(btnCssApply);
+        cssWrap.appendChild(cssArea);
+        cssWrap.appendChild(cssActions);
+        cssDetails.appendChild(cssSummary);
+        cssDetails.appendChild(cssWrap);
+
         card.appendChild(top);
         card.appendChild(srcDiv);
         card.appendChild(bottom);
         card.appendChild(settingsGrid);
+        card.appendChild(cssDetails);
         widgetListEl.appendChild(card);
       }
     }

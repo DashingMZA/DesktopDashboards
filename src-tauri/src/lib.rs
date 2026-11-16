@@ -4,7 +4,7 @@ mod tray;
 mod widget;
 mod win32;
 
-use config::{ConfigState, SourceType, WidgetConfig};
+use config::{ConfigState, PlacementMode, SourceType, WidgetConfig};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tauri::{
@@ -397,12 +397,14 @@ async fn update_widget_bounds(
 async fn update_widget_settings(
     app: AppHandle,
     id: String,
+    placement_mode: PlacementMode,
     locked: bool,
     click_through: bool,
     no_activate: bool,
     opacity: f64,
     zoom: f64,
     auto_reload_minutes: u32,
+    custom_css: String,
 ) -> Result<(), String> {
     let state = app
         .try_state::<Arc<ConfigState>>()
@@ -416,12 +418,14 @@ async fn update_widget_settings(
         let Some(w) = cfg.widgets.iter_mut().find(|w| w.id == id) else {
             return Err(format!("widget not found: {id}"));
         };
+        w.placement_mode = placement_mode;
         w.locked = locked;
         w.click_through = click_through;
         w.no_activate = no_activate;
         w.opacity = opacity.clamp(0.2, 1.0);
         w.zoom = zoom.clamp(0.5, 2.0);
         w.auto_reload_minutes = auto_reload_minutes;
+        w.custom_css = custom_css;
         w.clone()
     };
 
@@ -627,6 +631,7 @@ pub fn run() {
 
             tray::init_tray(app.handle())?;
             widget::start_auto_reload_loop(app.handle().clone());
+            widget::start_workerw_watcher(app.handle().clone());
 
             let args: Vec<String> = std::env::args().skip(1).collect();
             let opts = cli::parse_args(&args);
