@@ -1,65 +1,576 @@
-use std::path::PathBuf;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
+mod cli;
+mod config;
+mod tray;
+mod widget;
+mod win32;
 
-static WIDGET_SEQ: AtomicUsize = AtomicUsize::new(1);
+use config::{ConfigState, SourceType, WidgetConfig};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use tauri::{
+    AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, Position, RunEvent, Size,
+    WindowEvent,
+};
+use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
+use tray::AppQuitFlag;
 
-fn resolve_webview_data_dir(app: &AppHandle) -> Result<PathBuf, String> {
-    let base = app
-        .path()
-        .local_data_dir()
-        .map_err(|e| format!("failed to resolve local_data_dir: {e}"))?;
-    let dir = base.join("DesktopDashboards").join("webview");
-    std::fs::create_dir_all(&dir)
-        .map_err(|e| format!("failed to create webview data dir {}: {e}", dir.display()))?;
-    Ok(dir)
+/// 管理画面ウィンドウを前面表示する。
+pub fn show_manager_window(app: &AppHandle) {
+    if let Some(win) = app.get_webview_window("manager") {
+        let _ = win.unminimize();
+        let _ = win.show();
+        let _ = win.set_focus();
+    }
+}
+
+/// 2つの矩形が重なっているか（AABB 交差判定）と重複面積を計算する。
+fn overlap_area(ax: i32, ay: i32, aw: i32, ah: i32, bx: i32, by: i32, bw: i32, bh: i32) -> i64 {
+    let ix = (ax + aw).min(bx + bw) - ax.max(bx);
+    let iy = (ay + ah).min(by + bh) - ay.max(by);
+    if ix > 0 && iy > 0 {
+        (ix as i64) * (iy as i64)
+    } else {
+        0
+    }
+}
+
+/// 既存ガジェットと重ならない新規追加用の初期座標（非重複・空きスペース優先配置）を計算する。
+fn next_non_overlapping_position(
+    mon_x: i32,
+    mon_y: i32,
+    mon_w: i32,
+    mon_h: i32,
+    new_w: i32,
+    new_h: i32,
+    widgets: &[WidgetConfig],
+) -> (i32, i32) {
+    let margin = 40;
+    let gap = 24;
+
+    let mut x_candidates = vec![mon_x + margin];
+    let mut y_candidates = vec![mon_y + margin];
+
+    for w in widgets {
+        x_candidates.push(w.x + w.width as i32 + gap);
+        y_candidates.push(w.y + w.height as i32 + gap);
+    }
+
+    // グリッド候補も追加（空きスペースを細かく探索するため）
+    let mut gx = mon_x + margin;
+    while gx + new_w <= mon_x + mon_w - margin {
+        x_candidates.push(gx);
+        gx += 160;
+    }
+    let mut gy = mon_y + margin;
+    while gy + new_h <= mon_y + mon_h - margin {
+        y_candidates.push(gy);
+        gy += 160;
+    }
+
+    x_candidates.sort_unstable();
+    x_candidates.dedup();
+    y_candidates.sort_unstable();
+    y_candidates.dedup();
+
+    let max_x = (mon_x + mon_w - new_w - margin).max(mon_x + margin);
+    let max_y = (mon_y + mon_h - new_h - margin).max(mon_y + margin);
+
+    let mut best_pos = (mon_x + margin, mon_y + margin);
+    let mut best_overlap = i64::MAX;
+
+    for &cy in &y_candidates {
+        if cy < mon_y + margin || cy > max_y {
+            continue;
+        }
+        for &cx in &x_candidates {
+            if cx < mon_x + margin || cx > max_x {
+                continue;
+            }
+            let total_overlap: i64 = widgets
+                .iter()
+                .filter(|w| w.enabled)
+                .map(|w| {
+                    overlap_area(
+                        cx,
+                        cy,
+                        new_w,
+                        new_h,
+                        w.x,
+                        w.y,
+                        w.width as i32,
+                        w.height as i32,
+                    )
+                })
+                .sum();
+
+            if total_overlap == 0 {
+                return (cx, cy);
+            }
+            if total_overlap < best_overlap {
+                best_overlap = total_overlap;
+                best_pos = (cx, cy);
+            }
+        }
+    }
+
+    best_pos
+}
+
+fn next_cascade_position(app: &AppHandle, widgets: &[WidgetConfig]) -> (i32, i32) {
+    let default_w = 480;
+    let default_h = 760;
+    let (mx, my, mw, mh) = app
+        .primary_monitor()
+        .ok()
+        .flatten()
+        .map(|m| {
+            (
+                m.position().x,
+                m.position().y,
+                m.size().width as i32,
+                m.size().height as i32,
+            )
+        })
+        .unwrap_or((0, 0, 1920, 1080));
+    next_non_overlapping_position(mx, my, mw, mh, default_w, default_h, widgets)
+}
+
+/// `--add-url` で指定された URL を追加または既存を有効化して表示する。
+pub async fn add_or_activate_url_widget(
+    app: AppHandle,
+    url: String,
+    title: Option<String>,
+) -> Result<WidgetConfig, String> {
+    let parsed = url::Url::parse(&url).map_err(|e| format!("invalid URL '{url}': {e}"))?;
+    let normalized = parsed.to_string();
+
+    let state = app
+        .try_state::<Arc<ConfigState>>()
+        .ok_or_else(|| "ConfigState not initialized".to_string())?;
+
+    let target_widget = {
+        let mut cfg = state
+            .config
+            .lock()
+            .map_err(|e| format!("config lock poisoned: {e}"))?;
+
+        if let Some(existing) = cfg
+            .widgets
+            .iter_mut()
+            .find(|w| w.source_type == SourceType::Url && w.source == normalized)
+        {
+            existing.enabled = true;
+            if let Some(t) = title {
+                if !t.trim().is_empty() {
+                    existing.title = t;
+                }
+            }
+            existing.clone()
+        } else {
+            let derived_title = title
+                .filter(|t| !t.trim().is_empty())
+                .unwrap_or_else(|| parsed.host_str().unwrap_or("Web Widget").to_string());
+            let (x, y) = next_cascade_position(&app, &cfg.widgets);
+            let new_widget = WidgetConfig {
+                title: derived_title,
+                source_type: SourceType::Url,
+                source: normalized,
+                enabled: true,
+                x,
+                y,
+                ..Default::default()
+            };
+            cfg.widgets.push(new_widget.clone());
+            new_widget
+        }
+    };
+
+    state.save_now()?;
+    widget::create_widget_window(app.clone(), target_widget.clone()).await?;
+    tray::refresh_tray_menu(&app);
+    let _ = app.emit("widgets-updated", ());
+    Ok(target_widget)
+}
+
+/// ガジェットの表示/非表示を切り替える共通処理（コマンド・トレイ両用）。
+pub async fn toggle_widget_internal(
+    app: AppHandle,
+    id: String,
+    explicit_enabled: Option<bool>,
+) -> Result<(), String> {
+    let state = app
+        .try_state::<Arc<ConfigState>>()
+        .ok_or_else(|| "ConfigState not initialized".to_string())?;
+
+    let updated = {
+        let mut cfg = state
+            .config
+            .lock()
+            .map_err(|e| format!("config lock poisoned: {e}"))?;
+        let Some(w) = cfg.widgets.iter_mut().find(|w| w.id == id) else {
+            return Err(format!("widget not found: {id}"));
+        };
+        w.enabled = explicit_enabled.unwrap_or(!w.enabled);
+        w.clone()
+    };
+
+    state.save_now()?;
+    if updated.enabled {
+        widget::create_widget_window(app.clone(), updated).await?;
+    } else {
+        widget::close_widget_window(&app, &id);
+    }
+    tray::refresh_tray_menu(&app);
+    let _ = app.emit("widgets-updated", ());
+    Ok(())
+}
+
+/// 起動時または 2 つ目のプロセスから受け取った CLI オプションを処理する。
+fn handle_cli_options(app: &AppHandle, opts: cli::CliOptions, is_secondary_instance: bool) {
+    if opts.open_manager
+        || (!is_secondary_instance && !opts.silent)
+        || (is_secondary_instance && opts.add_url.is_none() && !opts.silent)
+    {
+        show_manager_window(app);
+    }
+
+    if let Some(url) = opts.add_url {
+        let app_handle = app.clone();
+        let title = opts.title;
+        tauri::async_runtime::spawn(async move {
+            if let Err(e) = add_or_activate_url_widget(app_handle, url, title).await {
+                eprintln!("[cli] failed to add url widget: {e}");
+            }
+        });
+    }
 }
 
 #[tauri::command]
 fn get_webview_data_dir(app: AppHandle) -> Result<String, String> {
-    let dir = resolve_webview_data_dir(&app)?;
+    let dir = widget::resolve_webview_data_dir(&app)?;
     Ok(dir.to_string_lossy().into_owned())
 }
 
 #[tauri::command]
-async fn open_spike_widget(
+fn list_widgets(app: AppHandle) -> Result<Vec<WidgetConfig>, String> {
+    let state = app
+        .try_state::<Arc<ConfigState>>()
+        .ok_or_else(|| "ConfigState not initialized".to_string())?;
+    let cfg = state
+        .config
+        .lock()
+        .map_err(|e| format!("config lock poisoned: {e}"))?;
+    Ok(cfg.widgets.clone())
+}
+
+#[tauri::command]
+async fn add_widget(
     app: AppHandle,
-    url: String,
-    always_on_bottom: bool,
-    decorations: bool,
-) -> Result<String, String> {
-    let parsed = url::Url::parse(&url).map_err(|e| format!("invalid URL '{url}': {e}"))?;
-    let data_dir = resolve_webview_data_dir(&app)?;
-    let seq = WIDGET_SEQ.fetch_add(1, Ordering::Relaxed);
-    let label = format!("widget-{seq}");
-
-    let mut builder = WebviewWindowBuilder::new(&app, &label, WebviewUrl::External(parsed))
-        .title(format!("DesktopDashboards Widget #{seq}"))
-        .data_directory(data_dir)
-        .inner_size(480.0, 760.0)
-        .decorations(decorations)
-        .skip_taskbar(always_on_bottom)
-        .always_on_bottom(always_on_bottom);
-
-    if !decorations {
-        builder = builder.shadow(false);
+    source_type: SourceType,
+    source: String,
+    title: String,
+) -> Result<WidgetConfig, String> {
+    let trimmed_source = source.trim().to_string();
+    if trimmed_source.is_empty() {
+        return Err("URL またはファイルパスを入力してください".to_string());
     }
 
-    builder
-        .build()
-        .map_err(|e| format!("failed to create widget window: {e}"))?;
+    if source_type == SourceType::Url {
+        return add_or_activate_url_widget(app, trimmed_source, Some(title)).await;
+    }
 
-    Ok(label)
+    let path = std::path::Path::new(&trimmed_source);
+    if !path.is_file() {
+        return Err(format!("ファイルが見つかりません: {trimmed_source}"));
+    }
+
+    let derived_title = if title.trim().is_empty() {
+        path.file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("Local HTML")
+            .to_string()
+    } else {
+        title.trim().to_string()
+    };
+
+    let state = app
+        .try_state::<Arc<ConfigState>>()
+        .ok_or_else(|| "ConfigState not initialized".to_string())?;
+
+    let new_widget = {
+        let mut cfg = state
+            .config
+            .lock()
+            .map_err(|e| format!("config lock poisoned: {e}"))?;
+        let (x, y) = next_cascade_position(&app, &cfg.widgets);
+        let w = WidgetConfig {
+            title: derived_title,
+            source_type: SourceType::File,
+            source: trimmed_source,
+            enabled: true,
+            x,
+            y,
+            ..Default::default()
+        };
+        cfg.widgets.push(w.clone());
+        w
+    };
+
+    state.save_now()?;
+    widget::create_widget_window(app.clone(), new_widget.clone()).await?;
+    tray::refresh_tray_menu(&app);
+    let _ = app.emit("widgets-updated", ());
+    Ok(new_widget)
+}
+
+#[tauri::command]
+async fn toggle_widget(app: AppHandle, id: String, enabled: bool) -> Result<(), String> {
+    toggle_widget_internal(app, id, Some(enabled)).await
+}
+
+#[tauri::command]
+async fn update_widget_bounds(
+    app: AppHandle,
+    id: String,
+    x: i32,
+    y: i32,
+    width: u32,
+    height: u32,
+) -> Result<(), String> {
+    let clamped_w = width.max(120);
+    let clamped_h = height.max(80);
+    let state = app
+        .try_state::<Arc<ConfigState>>()
+        .ok_or_else(|| "ConfigState not initialized".to_string())?;
+
+    {
+        let mut cfg = state
+            .config
+            .lock()
+            .map_err(|e| format!("config lock poisoned: {e}"))?;
+        let Some(w) = cfg.widgets.iter_mut().find(|w| w.id == id) else {
+            return Err(format!("widget not found: {id}"));
+        };
+        w.x = x;
+        w.y = y;
+        w.width = clamped_w;
+        w.height = clamped_h;
+    }
+
+    state.save_now()?;
+    if let Some(win) = app.get_webview_window(&widget::widget_label(&id)) {
+        let _ = win.set_position(Position::Physical(PhysicalPosition::new(x, y)));
+        let _ = win.set_size(Size::Physical(PhysicalSize::new(clamped_w, clamped_h)));
+    }
+    let _ = app.emit("widgets-updated", ());
+    Ok(())
+}
+
+#[tauri::command]
+async fn reset_widget_position(app: AppHandle, id: String) -> Result<(), String> {
+    let state = app
+        .try_state::<Arc<ConfigState>>()
+        .ok_or_else(|| "ConfigState not initialized".to_string())?;
+
+    let (center_x, center_y) = if let Ok(Some(monitor)) = app.primary_monitor() {
+        let m_pos = monitor.position();
+        let m_size = monitor.size();
+        (
+            m_pos.x + ((m_size.width as i32 - 480) / 2).max(40),
+            m_pos.y + ((m_size.height as i32 - 760) / 2).max(40),
+        )
+    } else {
+        (120, 80)
+    };
+
+    {
+        let mut cfg = state
+            .config
+            .lock()
+            .map_err(|e| format!("config lock poisoned: {e}"))?;
+        let Some(w) = cfg.widgets.iter_mut().find(|w| w.id == id) else {
+            return Err(format!("widget not found: {id}"));
+        };
+        w.x = center_x;
+        w.y = center_y;
+    }
+
+    state.save_now()?;
+    if let Some(win) = app.get_webview_window(&widget::widget_label(&id)) {
+        let _ = win.set_position(Position::Physical(PhysicalPosition::new(center_x, center_y)));
+    }
+    let _ = app.emit("widgets-updated", ());
+    Ok(())
+}
+
+#[tauri::command]
+fn delete_widget(app: AppHandle, id: String) -> Result<(), String> {
+    widget::close_widget_window(&app, &id);
+    let state = app
+        .try_state::<Arc<ConfigState>>()
+        .ok_or_else(|| "ConfigState not initialized".to_string())?;
+
+    {
+        let mut cfg = state
+            .config
+            .lock()
+            .map_err(|e| format!("config lock poisoned: {e}"))?;
+        cfg.widgets.retain(|w| w.id != id);
+    }
+
+    state.save_now()?;
+    tray::refresh_tray_menu(&app);
+    let _ = app.emit("widgets-updated", ());
+    Ok(())
+}
+
+#[tauri::command]
+fn reload_widget(app: AppHandle, id: String) {
+    widget::reload_widget_window(&app, &id);
+}
+
+#[tauri::command]
+fn reload_all_widgets(app: AppHandle) {
+    widget::reload_all_widget_windows(&app);
+}
+
+#[tauri::command]
+fn get_autostart(app: AppHandle) -> Result<bool, String> {
+    app.autolaunch()
+        .is_enabled()
+        .map_err(|e| format!("failed to query autostart: {e}"))
+}
+
+#[tauri::command]
+fn set_autostart(app: AppHandle, enabled: bool) -> Result<bool, String> {
+    if enabled {
+        app.autolaunch()
+            .enable()
+            .map_err(|e| format!("failed to enable autostart: {e}"))?;
+    } else {
+        app.autolaunch()
+            .disable()
+            .map_err(|e| format!("failed to disable autostart: {e}"))?;
+    }
+
+    if let Some(state) = app.try_state::<Arc<ConfigState>>() {
+        if let Ok(mut cfg) = state.config.lock() {
+            cfg.autostart = enabled;
+        }
+        let _ = state.save_now();
+    }
+    tray::refresh_tray_menu(&app);
+    Ok(enabled)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            let args = if argv.len() > 1 { &argv[1..] } else { &[] };
+            let opts = cli::parse_args(args);
+            handle_cli_options(app, opts, true);
+        }))
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_autostart::init(
+            MacosLauncher::LaunchAgent,
+            Some(vec!["--silent"]),
+        ))
+        .register_uri_scheme_protocol("widgetfile", |ctx, request| {
+            widget::handle_widgetfile_protocol(ctx.app_handle(), request)
+        })
+        .setup(|app| {
+            app.manage(AppQuitFlag(AtomicBool::new(false)));
+
+            let config_state = Arc::new(
+                ConfigState::load_or_init(app.handle())
+                    .expect("failed to initialize ConfigState"),
+            );
+            app.manage(config_state);
+
+            if let Some(manager_win) = app.get_webview_window("manager") {
+                let win_clone = manager_win.clone();
+                manager_win.on_window_event(move |event| {
+                    if let WindowEvent::CloseRequested { api, .. } = event {
+                        api.prevent_close();
+                        let _ = win_clone.hide();
+                    }
+                });
+            }
+
+            tray::init_tray(app.handle())?;
+
+            let args: Vec<String> = std::env::args().skip(1).collect();
+            let opts = cli::parse_args(&args);
+            let app_handle = app.handle().clone();
+
+            tauri::async_runtime::spawn(async move {
+                widget::sync_all_widgets(app_handle).await;
+            });
+
+            handle_cli_options(app.handle(), opts, false);
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             get_webview_data_dir,
-            open_spike_widget
+            list_widgets,
+            add_widget,
+            toggle_widget,
+            update_widget_bounds,
+            reset_widget_position,
+            delete_widget,
+            reload_widget,
+            reload_all_widgets,
+            get_autostart,
+            set_autostart,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running DesktopDashboards");
+        .build(tauri::generate_context!())
+        .expect("error while building DesktopDashboards");
+
+    app.run(|app_handle, event| {
+        if let RunEvent::ExitRequested { api, .. } = event {
+            let should_quit = app_handle
+                .try_state::<AppQuitFlag>()
+                .map(|f| f.0.load(Ordering::SeqCst))
+                .unwrap_or(false);
+            if !should_quit {
+                api.prevent_exit();
+            }
+        }
+    });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cascade_position_avoids_overlap() {
+        let (x1, y1) = next_non_overlapping_position(0, 0, 1920, 1080, 480, 760, &[]);
+        let first = WidgetConfig {
+            x: x1,
+            y: y1,
+            width: 480,
+            height: 760,
+            enabled: true,
+            ..Default::default()
+        };
+        let (x2, y2) =
+            next_non_overlapping_position(0, 0, 1920, 1080, 480, 760, &[first.clone()]);
+        assert_eq!(overlap_area(x1, y1, 480, 760, x2, y2, 480, 760), 0);
+
+        let second = WidgetConfig {
+            x: x2,
+            y: y2,
+            width: 480,
+            height: 760,
+            enabled: true,
+            ..Default::default()
+        };
+        let (x3, y3) =
+            next_non_overlapping_position(0, 0, 1920, 1080, 480, 760, &[first, second]);
+        assert_eq!(overlap_area(x1, y1, 480, 760, x3, y3, 480, 760), 0);
+        assert_eq!(overlap_area(x2, y2, 480, 760, x3, y3, 480, 760), 0);
+    }
 }

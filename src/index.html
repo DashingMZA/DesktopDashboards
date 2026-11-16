@@ -3,64 +3,106 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DesktopDashboards - M0 Spike</title>
+  <title>DesktopDashboards - 管理画面</title>
   <style>
     :root {
-      color-scheme: light dark;
+      color-scheme: dark;
       font-family: "Segoe UI", "Yu Gothic UI", sans-serif;
+    }
+    * {
+      box-sizing: border-box;
     }
     body {
       margin: 0;
       padding: 20px;
-      background: #14171c;
-      color: #f0f4f8;
-      line-height: 1.5;
+      background: #12151b;
+      color: #eef2f6;
+      line-height: 1.45;
+      font-size: 13px;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      gap: 12px;
     }
     h1 {
       font-size: 18px;
-      margin: 0 0 8px;
+      margin: 0;
+      font-weight: 600;
     }
-    p.desc {
-      font-size: 13px;
-      color: #9aa5b1;
-      margin: 0 0 16px;
+    h2 {
+      font-size: 14px;
+      margin: 0 0 12px;
+      font-weight: 600;
+      color: #cbd5e1;
     }
-    .card {
-      background: #1e232b;
-      border: 1px solid #2e3540;
+    .panel {
+      background: #1b2029;
+      border: 1px solid #2c3442;
       border-radius: 10px;
-      padding: 14px;
+      padding: 14px 16px;
       margin-bottom: 14px;
     }
-    label {
-      display: block;
-      font-size: 12px;
-      color: #cbd2d9;
-      margin-bottom: 6px;
+    .row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 10px;
     }
-    input[type="text"] {
+    .row:last-child {
+      margin-bottom: 0;
+    }
+    .field {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    label.field-label {
+      font-size: 11px;
+      color: #94a3b8;
+    }
+    input[type="text"], input[type="number"], select {
       width: 100%;
-      box-sizing: border-box;
       padding: 8px 10px;
       border-radius: 6px;
-      border: 1px solid #3e4756;
-      background: #101318;
+      border: 1px solid #384252;
+      background: #0f1217;
       color: #f8fafc;
       font-size: 13px;
     }
-    .actions {
+    .bounds-row {
       display: flex;
-      gap: 8px;
-      margin-top: 12px;
+      gap: 6px;
+      align-items: center;
       flex-wrap: wrap;
     }
+    .bounds-field {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      color: #94a3b8;
+    }
+    .bounds-field input[type="number"] {
+      width: 68px;
+      padding: 4px 6px;
+      font-size: 12px;
+    }
     button {
-      padding: 8px 14px;
+      padding: 8px 12px;
       border-radius: 6px;
       border: none;
       cursor: pointer;
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 600;
+      white-space: nowrap;
+      transition: opacity 0.15s;
+    }
+    button:hover {
+      opacity: 0.9;
     }
     button.primary {
       background: #2563eb;
@@ -68,55 +110,177 @@
     }
     button.secondary {
       background: #334155;
-      color: #f1f5f9;
+      color: #e2e8f0;
     }
-    button:hover {
-      opacity: 0.92;
+    button.danger {
+      background: #991b1b;
+      color: #fee2e2;
     }
-    .meta {
+    .widget-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .widget-card {
+      background: #141820;
+      border: 1px solid #2b3341;
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .widget-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .widget-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+    .badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      background: #1e293b;
+      color: #93c5fd;
+    }
+    .badge.file {
+      background: #1e293b;
+      color: #6ee7b7;
+    }
+    .widget-title {
+      font-weight: 600;
+      font-size: 14px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .widget-source {
       font-size: 12px;
-      color: #9aa5b1;
+      color: #94a3b8;
       word-break: break-all;
     }
+    .widget-bottom {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .widget-coords {
+      font-size: 11px;
+      color: #64748b;
+    }
+    .widget-actions {
+      display: flex;
+      gap: 6px;
+    }
+    .switch {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      color: #cbd5e1;
+      user-select: none;
+    }
+    .switch input {
+      accent-color: #2563eb;
+      width: 15px;
+      height: 15px;
+      cursor: pointer;
+    }
     #status {
-      margin-top: 10px;
       font-size: 12px;
       color: #34d399;
       min-height: 18px;
+      margin-top: 6px;
     }
     #status.error {
       color: #f87171;
     }
+    .empty {
+      color: #64748b;
+      font-size: 13px;
+      padding: 12px 0;
+      text-align: center;
+    }
+    .meta {
+      font-size: 11px;
+      color: #64748b;
+      word-break: break-all;
+    }
   </style>
 </head>
 <body>
-  <h1>DesktopDashboards — M0 スパイク検証</h1>
-  <p class="desc">
-    独立した WebView2 プロファイル（<code>user_data_dir</code>）で <code>muse.ai</code> へのログインおよびスペース表示・操作ができるかを確認します。
-  </p>
+  <header>
+    <h1>DesktopDashboards</h1>
+    <button class="secondary" id="btn-reload-all">すべて再読み込み</button>
+  </header>
 
-  <div class="card">
-    <label for="url-input">検証する URL</label>
-    <input
-      id="url-input"
-      type="text"
-      value="https://muse.ai/library/artifacts/tong-qin-dian-che-shi-ke-biao"
-    />
-    <div class="actions">
-      <button class="primary" id="btn-normal">通常ウィンドウで開く（ログイン検証）</button>
-      <button class="secondary" id="btn-gadget">枠なし・最背面で開く（ガジェット検証）</button>
+  <section class="panel">
+    <h2>新規ガジェット追加</h2>
+    <div class="row">
+      <div class="field" style="flex: 0 0 130px;">
+        <label class="field-label" for="source-type">種別</label>
+        <select id="source-type">
+          <option value="url">Web URL</option>
+          <option value="file">ローカル HTML</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="field-label" for="widget-title">タイトル（任意）</label>
+        <input id="widget-title" type="text" placeholder="例: 通勤電車 時刻表" />
+      </div>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label class="field-label" for="widget-source">URL または HTML ファイルパス</label>
+        <input id="widget-source" type="text" placeholder="https://muse.ai/..." />
+      </div>
+      <button class="secondary" id="btn-browse" style="margin-top: 18px; display: none;">参照...</button>
+      <button class="primary" id="btn-add" style="margin-top: 18px;">追加して表示</button>
     </div>
     <div id="status"></div>
-  </div>
+  </section>
 
-  <div class="card">
-    <div class="meta">WebView2 プロファイル保存先:</div>
-    <div class="meta" id="data-dir">読み込み中...</div>
-  </div>
+  <section class="panel">
+    <h2>登録済みガジェット一覧</h2>
+    <div id="widget-list" class="widget-list"></div>
+  </section>
+
+  <section class="panel">
+    <div class="row" style="justify-content: space-between;">
+      <label class="switch">
+        <input type="checkbox" id="chk-autostart" />
+        Windows 起動時に自動起動（<code>--silent</code> でトレイ常駐）
+      </label>
+    </div>
+    <div class="meta" style="margin-top: 8px;">
+      WebView2 プロファイル: <span id="data-dir">読み込み中...</span>
+    </div>
+  </section>
 
   <script>
     const invoke = window.__TAURI__.core.invoke;
-    const urlInput = document.getElementById("url-input");
+    const listen = window.__TAURI__.event.listen;
+    const dialogOpen = window.__TAURI__.dialog?.open;
+
+    const sourceTypeEl = document.getElementById("source-type");
+    const titleEl = document.getElementById("widget-title");
+    const sourceEl = document.getElementById("widget-source");
+    const browseBtn = document.getElementById("btn-browse");
+    const addBtn = document.getElementById("btn-add");
+    const reloadAllBtn = document.getElementById("btn-reload-all");
+    const widgetListEl = document.getElementById("widget-list");
+    const autostartChk = document.getElementById("chk-autostart");
     const statusEl = document.getElementById("status");
     const dataDirEl = document.getElementById("data-dir");
 
@@ -125,26 +289,223 @@
       statusEl.className = isError ? "error" : "";
     }
 
-    async function launchWidget(alwaysOnBottom, decorations) {
-      const url = urlInput.value.trim();
-      if (!url) {
-        setStatus("URL を入力してください。", true);
+    sourceTypeEl.addEventListener("change", () => {
+      const isFile = sourceTypeEl.value === "file";
+      browseBtn.style.display = isFile ? "inline-block" : "none";
+      sourceEl.placeholder = isFile
+        ? "C:\\path\\to\\widget.html"
+        : "https://muse.ai/...";
+    });
+
+    browseBtn.addEventListener("click", async () => {
+      if (!dialogOpen) {
+        setStatus("ファイル選択ダイアログが利用できません。", true);
         return;
       }
       try {
-        const label = await invoke("open_spike_widget", {
-          url,
-          alwaysOnBottom,
-          decorations,
+        const selected = await dialogOpen({
+          multiple: false,
+          filters: [{ name: "HTML ファイル", extensions: ["html", "htm"] }],
         });
-        setStatus(`ウィンドウを開きました: ${label}`);
+        if (typeof selected === "string" && selected) {
+          sourceEl.value = selected;
+        }
       } catch (err) {
-        setStatus(`エラー: ${err}`, true);
+        setStatus(`ファイル選択エラー: ${err}`, true);
+      }
+    });
+
+    addBtn.addEventListener("click", async () => {
+      const sourceType = sourceTypeEl.value;
+      const source = sourceEl.value.trim();
+      const title = titleEl.value.trim();
+      if (!source) {
+        setStatus("URL またはファイルパスを入力してください。", true);
+        return;
+      }
+      try {
+        await invoke("add_widget", { sourceType, source, title });
+        sourceEl.value = "";
+        titleEl.value = "";
+        setStatus("ガジェットを追加しました。");
+        await refreshAll();
+      } catch (err) {
+        setStatus(`追加エラー: ${err}`, true);
+      }
+    });
+
+    reloadAllBtn.addEventListener("click", async () => {
+      await invoke("reload_all_widgets");
+      setStatus("表示中のガジェットを再読み込みしました。");
+    });
+
+    autostartChk.addEventListener("change", async () => {
+      try {
+        await invoke("set_autostart", { enabled: autostartChk.checked });
+        setStatus(
+          autostartChk.checked
+            ? "Windows 起動時の自動起動を有効にしました。"
+            : "Windows 起動時の自動起動を無効にしました。"
+        );
+      } catch (err) {
+        setStatus(`自動起動設定エラー: ${err}`, true);
+        await refreshAutostart();
+      }
+    });
+
+    async function refreshWidgets() {
+      const widgets = await invoke("list_widgets");
+      widgetListEl.innerHTML = "";
+      if (!widgets.length) {
+        const empty = document.createElement("div");
+        empty.className = "empty";
+        empty.textContent = "ガジェットはまだ登録されていません。";
+        widgetListEl.appendChild(empty);
+        return;
+      }
+
+      for (const w of widgets) {
+        const card = document.createElement("div");
+        card.className = "widget-card";
+
+        const top = document.createElement("div");
+        top.className = "widget-top";
+
+        const titleWrap = document.createElement("div");
+        titleWrap.className = "widget-title-wrap";
+
+        const badge = document.createElement("span");
+        badge.className = `badge ${w.source_type === "file" ? "file" : ""}`;
+        badge.textContent = w.source_type === "file" ? "HTML" : "URL";
+
+        const titleSpan = document.createElement("span");
+        titleSpan.className = "widget-title";
+        titleSpan.textContent = w.title;
+
+        titleWrap.appendChild(badge);
+        titleWrap.appendChild(titleSpan);
+
+        const toggleLabel = document.createElement("label");
+        toggleLabel.className = "switch";
+        const toggleChk = document.createElement("input");
+        toggleChk.type = "checkbox";
+        toggleChk.checked = w.enabled;
+        toggleChk.addEventListener("change", async () => {
+          try {
+            await invoke("toggle_widget", { id: w.id, enabled: toggleChk.checked });
+          } catch (err) {
+            setStatus(`切替エラー: ${err}`, true);
+            await refreshWidgets();
+          }
+        });
+        toggleLabel.appendChild(toggleChk);
+        toggleLabel.appendChild(document.createTextNode("表示"));
+
+        top.appendChild(titleWrap);
+        top.appendChild(toggleLabel);
+
+        const srcDiv = document.createElement("div");
+        srcDiv.className = "widget-source";
+        srcDiv.textContent = w.source;
+
+        const bottom = document.createElement("div");
+        bottom.className = "widget-bottom";
+
+        const boundsRow = document.createElement("div");
+        boundsRow.className = "bounds-row";
+
+        const mkNumInput = (labelText, value, minVal) => {
+          const wrap = document.createElement("label");
+          wrap.className = "bounds-field";
+          wrap.textContent = labelText;
+          const inp = document.createElement("input");
+          inp.type = "number";
+          inp.value = String(value);
+          if (minVal !== undefined) inp.min = String(minVal);
+          wrap.appendChild(inp);
+          return { wrap, inp };
+        };
+
+        const xField = mkNumInput("X", w.x);
+        const yField = mkNumInput("Y", w.y);
+        const wField = mkNumInput("幅", w.width, 120);
+        const hField = mkNumInput("高", w.height, 80);
+
+        const btnApply = document.createElement("button");
+        btnApply.className = "secondary";
+        btnApply.textContent = "適用";
+        btnApply.addEventListener("click", async () => {
+          const x = parseInt(xField.inp.value, 10) || 0;
+          const y = parseInt(yField.inp.value, 10) || 0;
+          const width = Math.max(120, parseInt(wField.inp.value, 10) || w.width);
+          const height = Math.max(80, parseInt(hField.inp.value, 10) || w.height);
+          try {
+            await invoke("update_widget_bounds", { id: w.id, x, y, width, height });
+            setStatus(`「${w.title}」の位置・サイズを更新しました。`);
+          } catch (err) {
+            setStatus(`更新エラー: ${err}`, true);
+          }
+        });
+
+        boundsRow.appendChild(xField.wrap);
+        boundsRow.appendChild(yField.wrap);
+        boundsRow.appendChild(wField.wrap);
+        boundsRow.appendChild(hField.wrap);
+        boundsRow.appendChild(btnApply);
+
+        const actions = document.createElement("div");
+        actions.className = "widget-actions";
+
+        const btnReload = document.createElement("button");
+        btnReload.className = "secondary";
+        btnReload.textContent = "再読込";
+        btnReload.addEventListener("click", () => invoke("reload_widget", { id: w.id }));
+
+        const btnReset = document.createElement("button");
+        btnReset.className = "secondary";
+        btnReset.textContent = "中央へ戻す";
+        btnReset.addEventListener("click", async () => {
+          await invoke("reset_widget_position", { id: w.id });
+          setStatus(`「${w.title}」の位置を中央へ戻しました。`);
+          await refreshWidgets();
+        });
+
+        const btnDelete = document.createElement("button");
+        btnDelete.className = "danger";
+        btnDelete.textContent = "削除";
+        btnDelete.addEventListener("click", async () => {
+          await invoke("delete_widget", { id: w.id });
+          setStatus(`「${w.title}」を削除しました。`);
+          await refreshWidgets();
+        });
+
+        actions.appendChild(btnReload);
+        actions.appendChild(btnReset);
+        actions.appendChild(btnDelete);
+
+        bottom.appendChild(boundsRow);
+        bottom.appendChild(actions);
+
+        card.appendChild(top);
+        card.appendChild(srcDiv);
+        card.appendChild(bottom);
+        widgetListEl.appendChild(card);
       }
     }
 
-    document.getElementById("btn-normal").addEventListener("click", () => launchWidget(false, true));
-    document.getElementById("btn-gadget").addEventListener("click", () => launchWidget(true, false));
+    async function refreshAutostart() {
+      try {
+        autostartChk.checked = await invoke("get_autostart");
+      } catch (_) {}
+    }
+
+    async function refreshAll() {
+      await Promise.all([refreshWidgets(), refreshAutostart()]);
+    }
+
+    listen("widgets-updated", () => {
+      refreshAll();
+    });
 
     invoke("get_webview_data_dir")
       .then((dir) => {
@@ -153,6 +514,8 @@
       .catch((err) => {
         dataDirEl.textContent = `取得失敗: ${err}`;
       });
+
+    refreshAll();
   </script>
 </body>
 </html>

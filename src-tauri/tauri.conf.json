@@ -10,10 +10,11 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "DesktopDashboards (M0 Spike)",
+        "title": "DesktopDashboards",
         "label": "manager",
-        "width": 560,
-        "height": 460,
+        "width": 680,
+        "height": 560,
+        "visible": false,
         "resizable": true
       }
     ],
