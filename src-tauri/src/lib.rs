@@ -9,7 +9,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tauri::{
     AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, Position, RunEvent, Size,
-    WindowEvent,
+    WebviewWindow, WindowEvent,
 };
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
 use tray::AppQuitFlag;
@@ -225,6 +225,33 @@ pub async fn toggle_widget_internal(
     Ok(())
 }
 
+/// 全ガジェットのロック状態を一括変更する（トレイメニュー用）。
+pub fn set_all_widgets_locked(app: &AppHandle, locked: bool) -> Result<(), String> {
+    let state = app
+        .try_state::<Arc<ConfigState>>()
+        .ok_or_else(|| "ConfigState not initialized".to_string())?;
+
+    let updated_widgets = {
+        let mut cfg = state
+            .config
+            .lock()
+            .map_err(|e| format!("config lock poisoned: {e}"))?;
+        for w in &mut cfg.widgets {
+            w.locked = locked;
+        }
+        cfg.widgets.clone()
+    };
+
+    state.save_now()?;
+    for w in &updated_widgets {
+        if w.enabled {
+            widget::apply_runtime_settings(app, w);
+        }
+    }
+    let _ = app.emit("widgets-updated", ());
+    Ok(())
+}
+
 /// 起動時または 2 つ目のプロセスから受け取った CLI オプションを処理する。
 fn handle_cli_options(app: &AppHandle, opts: cli::CliOptions, is_secondary_instance: bool) {
     if opts.open_manager
@@ -367,6 +394,105 @@ async fn update_widget_bounds(
 }
 
 #[tauri::command]
+async fn update_widget_settings(
+    app: AppHandle,
+    id: String,
+    locked: bool,
+    click_through: bool,
+    no_activate: bool,
+    opacity: f64,
+    zoom: f64,
+    auto_reload_minutes: u32,
+) -> Result<(), String> {
+    let state = app
+        .try_state::<Arc<ConfigState>>()
+        .ok_or_else(|| "ConfigState not initialized".to_string())?;
+
+    let updated = {
+        let mut cfg = state
+            .config
+            .lock()
+            .map_err(|e| format!("config lock poisoned: {e}"))?;
+        let Some(w) = cfg.widgets.iter_mut().find(|w| w.id == id) else {
+            return Err(format!("widget not found: {id}"));
+        };
+        w.locked = locked;
+        w.click_through = click_through;
+        w.no_activate = no_activate;
+        w.opacity = opacity.clamp(0.2, 1.0);
+        w.zoom = zoom.clamp(0.5, 2.0);
+        w.auto_reload_minutes = auto_reload_minutes;
+        w.clone()
+    };
+
+    state.save_now()?;
+    if updated.enabled {
+        widget::apply_runtime_settings(&app, &updated);
+    }
+    let _ = app.emit("widgets-updated", ());
+    Ok(())
+}
+
+#[tauri::command]
+async fn widget_bar_action(
+    app: AppHandle,
+    window: WebviewWindow,
+    action: String,
+) -> Result<(), String> {
+    let Some(widget_id) = window.label().strip_prefix("widget-").map(|s| s.to_string()) else {
+        return Err("invalid widget window".to_string());
+    };
+
+    match action.as_str() {
+        "home" => {
+            let state = app
+                .try_state::<Arc<ConfigState>>()
+                .ok_or_else(|| "ConfigState not initialized".to_string())?;
+            let target = {
+                let cfg = state
+                    .config
+                    .lock()
+                    .map_err(|e| format!("config lock poisoned: {e}"))?;
+                cfg.widgets.iter().find(|w| w.id == widget_id).cloned()
+            };
+            if let Some(w) = target {
+                if let Ok(tauri::WebviewUrl::External(url)) = widget::build_webview_url(&w) {
+                    let _ = window.navigate(url);
+                }
+            }
+        }
+        "reload" => {
+            let _ = window.reload();
+        }
+        "lock" => {
+            let state = app
+                .try_state::<Arc<ConfigState>>()
+                .ok_or_else(|| "ConfigState not initialized".to_string())?;
+            let updated = {
+                let mut cfg = state
+                    .config
+                    .lock()
+                    .map_err(|e| format!("config lock poisoned: {e}"))?;
+                let Some(w) = cfg.widgets.iter_mut().find(|w| w.id == widget_id) else {
+                    return Err(format!("widget not found: {widget_id}"));
+                };
+                w.locked = true;
+                w.clone()
+            };
+            state.save_now()?;
+            widget::apply_runtime_settings(&app, &updated);
+            let _ = app.emit("widgets-updated", ());
+        }
+        "close" => {
+            toggle_widget_internal(app, widget_id, Some(false)).await?;
+        }
+        _ => return Err(format!("unknown action: {action}")),
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
 async fn reset_widget_position(app: AppHandle, id: String) -> Result<(), String> {
     let state = app
         .try_state::<Arc<ConfigState>>()
@@ -500,6 +626,7 @@ pub fn run() {
             }
 
             tray::init_tray(app.handle())?;
+            widget::start_auto_reload_loop(app.handle().clone());
 
             let args: Vec<String> = std::env::args().skip(1).collect();
             let opts = cli::parse_args(&args);
@@ -518,6 +645,8 @@ pub fn run() {
             add_widget,
             toggle_widget,
             update_widget_bounds,
+            update_widget_settings,
+            widget_bar_action,
             reset_widget_position,
             delete_widget,
             reload_widget,

@@ -1,12 +1,13 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "widgets",
-  "description": "Allow widget windows to start dragging via hover handle",
+  "description": "Allow widget windows to start dragging and invoke widget_bar_action",
   "windows": ["widget-*"],
   "remote": {
     "urls": ["http://*", "https://*"]
   },
   "permissions": [
-    "core:window:allow-start-dragging"
+    "core:window:allow-start-dragging",
+    "allow-widget-bar-action"
   ]
 }

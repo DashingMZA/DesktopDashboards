@@ -48,6 +48,9 @@ pub fn build_tray_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
         .is_enabled()
         .unwrap_or(autostart_cfg);
 
+    let lock_all_item = MenuItemBuilder::with_id("lock_all", "すべてロック").build(app)?;
+    let unlock_all_item =
+        MenuItemBuilder::with_id("unlock_all", "すべてロック解除").build(app)?;
     let reload_all_item =
         MenuItemBuilder::with_id("reload_all", "すべて再読み込み").build(app)?;
     let autostart_item =
@@ -58,6 +61,8 @@ pub fn build_tray_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
 
     builder
         .separator()
+        .item(&lock_all_item)
+        .item(&unlock_all_item)
         .item(&reload_all_item)
         .item(&autostart_item)
         .separator()
@@ -94,6 +99,10 @@ pub fn init_tray(app: &AppHandle) -> tauri::Result<()> {
             let id = event.id().as_ref();
             if id == "open_manager" {
                 crate::show_manager_window(app);
+            } else if id == "lock_all" {
+                let _ = crate::set_all_widgets_locked(app, true);
+            } else if id == "unlock_all" {
+                let _ = crate::set_all_widgets_locked(app, false);
             } else if id == "reload_all" {
                 widget::reload_all_widget_windows(app);
             } else if id == "autostart" {

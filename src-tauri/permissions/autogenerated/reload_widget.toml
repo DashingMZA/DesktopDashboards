@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-reload-widget"
+description = "Enables the reload_widget command without any pre-configured scope."
+commands.allow = ["reload_widget"]
+
+[[permission]]
+identifier = "deny-reload-widget"
+description = "Denies the reload_widget command without any pre-configured scope."
+commands.deny = ["reload_widget"]

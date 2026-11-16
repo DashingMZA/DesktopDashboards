@@ -1,9 +1,11 @@
 use crate::config::{ConfigState, PlacementMode, SourceType, WidgetConfig};
 use crate::win32;
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use tauri::webview::NewWindowResponse;
+use std::time::{Duration, Instant};
+use tauri::webview::{NewWindowResponse, PageLoadEvent};
 use tauri::{
     AppHandle, Manager, PhysicalPosition, PhysicalSize, Position, Size, WebviewUrl,
     WebviewWindowBuilder, WindowEvent,
@@ -13,54 +15,159 @@ pub fn widget_label(widget_id: &str) -> String {
     format!("widget-{widget_id}")
 }
 
-const WIDGET_DRAG_HANDLE_SCRIPT: &str = r#"
-(() => {
-  if (window.__ddDragHandleInstalled) return;
-  window.__ddDragHandleInstalled = true;
+/// ガジェット用 WebView ランタイムスクリプト（ホバー操作バー + リロードガード）を生成する。
+fn build_widget_init_script(locked: bool, home_url: &str) -> String {
+    let home_json = serde_json::to_string(home_url).unwrap_or_else(|_| "\"\"".to_string());
+    let locked_str = if locked { "true" } else { "false" };
 
-  function install() {
-    if (!document.body || document.getElementById('__dd_drag_host')) return;
-    const host = document.createElement('div');
-    host.id = '__dd_drag_host';
-    host.style.cssText = 'all:initial;position:fixed;top:0;left:0;right:0;height:18px;z-index:2147483647;pointer-events:auto;';
-    const shadow = host.attachShadow({ mode: 'open' });
+    format!(
+        r#"
+(() => {{
+  if (window.__ddRuntimeInstalled) return;
+  window.__ddRuntimeInstalled = true;
+
+  const HOME_URL = {home_json};
+  let isLocked = {locked_str};
+  let lastInteractionAt = 0;
+  let pendingReloadTimer = null;
+  let hostEl = null;
+
+  const markInteraction = () => {{ lastInteractionAt = Date.now(); }};
+  document.addEventListener('pointerdown', markInteraction, true);
+  document.addEventListener('keydown', markInteraction, true);
+  document.addEventListener('input', markInteraction, true);
+  document.addEventListener('focusin', markInteraction, true);
+
+  function isUserEditingOrActive() {{
+    const active = document.activeElement;
+    if (active) {{
+      const tag = active.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || active.isContentEditable) {{
+        return true;
+      }}
+    }}
+    return (Date.now() - lastInteractionAt) < 5000;
+  }}
+
+  window.__ddSafeReload = () => {{
+    if (isUserEditingOrActive()) {{
+      if (!pendingReloadTimer) {{
+        pendingReloadTimer = setTimeout(() => {{
+          pendingReloadTimer = null;
+          window.__ddSafeReload();
+        }}, 1500);
+      }}
+      return;
+    }}
+    location.reload();
+  }};
+
+  window.__ddSetLocked = (nextLocked) => {{
+    isLocked = !!nextLocked;
+    if (hostEl) {{
+      hostEl.style.display = isLocked ? 'none' : 'block';
+    }}
+  }};
+
+  function invokeAction(action) {{
+    if (window.__TAURI_INTERNALS__ && typeof window.__TAURI_INTERNALS__.invoke === 'function') {{
+      window.__TAURI_INTERNALS__.invoke('widget_bar_action', {{ action }}).catch(() => {{}});
+    }}
+  }}
+
+  function install() {{
+    const parent = document.documentElement || document.body;
+    if (!parent) return;
+    const existing = document.getElementById('__dd_drag_host');
+    if (existing) {{
+      hostEl = existing;
+      hostEl.style.display = isLocked ? 'none' : 'block';
+      return;
+    }}
+    hostEl = document.createElement('div');
+    hostEl.id = '__dd_drag_host';
+    hostEl.style.cssText = 'all:initial;position:fixed;top:0;left:0;right:0;height:28px;z-index:2147483647;pointer-events:auto;';
+    hostEl.style.display = isLocked ? 'none' : 'block';
+
+    const shadow = hostEl.attachShadow({{ mode: 'open' }});
     const bar = document.createElement('div');
-    bar.textContent = '⋮⋮ ドラッグで移動';
     bar.style.cssText = [
       'width:100%',
-      'height:18px',
+      'height:28px',
       'display:flex',
       'align-items:center',
-      'justify-content:center',
+      'justify-content:space-between',
+      'padding:4px 8px 2px 8px',
+      'box-sizing:border-box',
       'font-family:"Segoe UI",sans-serif',
       'font-size:11px',
-      'color:rgba(255,255,255,0.9)',
-      'background:rgba(15,23,42,0.75)',
-      'cursor:move',
+      'color:rgba(255,255,255,0.92)',
+      'background:rgba(15,23,42,0.82)',
       'user-select:none',
       'opacity:0',
       'transition:opacity 0.15s ease'
     ].join(';');
-    bar.addEventListener('mouseenter', () => { bar.style.opacity = '1'; });
-    bar.addEventListener('mouseleave', () => { bar.style.opacity = '0'; });
-    bar.addEventListener('mousedown', (e) => {
-      if (e.button !== 0) return;
-      e.preventDefault();
-      if (window.__TAURI_INTERNALS__ && typeof window.__TAURI_INTERNALS__.invoke === 'function') {
-        window.__TAURI_INTERNALS__.invoke('plugin:window|start_dragging').catch(() => {});
-      }
-    });
-    shadow.appendChild(bar);
-    document.body.appendChild(host);
-  }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', install, { once: true });
-  } else {
-    install();
-  }
-})();
-"#;
+    const dragArea = document.createElement('div');
+    dragArea.textContent = '⋮⋮ ドラッグで移動';
+    dragArea.style.cssText = 'flex:1;cursor:move;display:flex;align-items:center;height:100%;';
+    dragArea.addEventListener('mousedown', (e) => {{
+      if (e.button !== 0 || isLocked) return;
+      e.preventDefault();
+      if (window.__TAURI_INTERNALS__ && typeof window.__TAURI_INTERNALS__.invoke === 'function') {{
+        window.__TAURI_INTERNALS__.invoke('plugin:window|start_dragging').catch(() => {{}});
+      }}
+    }});
+
+    const btnGroup = document.createElement('div');
+    btnGroup.style.cssText = 'display:flex;align-items:center;gap:4px;pointer-events:auto;';
+
+    const mkBtn = (label, title, onClick) => {{
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = label;
+      b.title = title;
+      b.style.cssText = 'border:none;background:rgba(255,255,255,0.16);color:#fff;border-radius:4px;cursor:pointer;font-size:12px;line-height:1;min-width:24px;height:20px;padding:0 6px;display:inline-flex;align-items:center;justify-content:center;';
+      b.addEventListener('mousedown', (e) => e.stopPropagation());
+      b.addEventListener('click', (e) => {{ e.preventDefault(); e.stopPropagation(); onClick(); }});
+      return b;
+    }};
+
+    btnGroup.appendChild(mkBtn('⌂', 'ホームへ戻る', () => invokeAction('home')));
+    btnGroup.appendChild(mkBtn('↻', '再読み込み', () => invokeAction('reload')));
+    btnGroup.appendChild(mkBtn('🔒', 'ロックする', () => invokeAction('lock')));
+    btnGroup.appendChild(mkBtn('✕', '閉じる（非表示）', () => invokeAction('close')));
+
+    bar.appendChild(dragArea);
+    bar.appendChild(btnGroup);
+
+    bar.addEventListener('mouseenter', () => {{ if (!isLocked) bar.style.opacity = '1'; }});
+    bar.addEventListener('mouseleave', () => {{ bar.style.opacity = '0'; }});
+
+    shadow.appendChild(bar);
+    parent.appendChild(hostEl);
+  }}
+
+  install();
+  if (document.readyState === 'loading') {{
+    document.addEventListener('DOMContentLoaded', install, {{ once: true }});
+  }}
+  window.addEventListener('load', install);
+
+  try {{
+    const obs = new MutationObserver(() => {{
+      if (!document.getElementById('__dd_drag_host')) {{
+        install();
+      }}
+    }});
+    if (document.documentElement) {{
+      obs.observe(document.documentElement, {{ childList: true }});
+    }}
+  }} catch (_) {{}}
+}})();
+"#
+    )
+}
 
 /// 独立した WebView2 `user_data_dir` を解決する（他アプリとのロック競合防止）。
 pub fn resolve_webview_data_dir(app: &AppHandle) -> Result<PathBuf, String> {
@@ -100,10 +207,35 @@ pub fn is_same_origin_or_internal(initial: &url::Url, target: &url::Url) -> bool
         && initial.port_or_known_default() == target.port_or_known_default()
 }
 
+/// 既存ガジェットウィンドウにランタイム設定（ロック・透明度・クリック透過・NOACTIVATE・ズーム）を適用する。
+pub fn apply_runtime_settings(app: &AppHandle, widget: &WidgetConfig) {
+    let label = widget_label(&widget.id);
+    let Some(window) = app.get_webview_window(&label) else {
+        return;
+    };
+
+    let _ = window.set_resizable(!widget.locked);
+    let _ = window.set_zoom(widget.zoom.clamp(0.5, 2.0));
+    let _ = window.eval(&format!(
+        "window.__ddSetLocked && window.__ddSetLocked({});",
+        if widget.locked { "true" } else { "false" }
+    ));
+
+    if let Err(e) = win32::apply_widget_styles(
+        &window,
+        widget.opacity,
+        widget.click_through,
+        widget.no_activate,
+    ) {
+        eprintln!("[widget] failed to apply styles to {label}: {e}");
+    }
+}
+
 /// ガジェットウィンドウを生成する（コマンド内からの呼び出し時のデッドロック防止のため async fn）。
 pub async fn create_widget_window(app: AppHandle, widget: WidgetConfig) -> Result<(), String> {
     let label = widget_label(&widget.id);
     if app.get_webview_window(&label).is_some() {
+        apply_runtime_settings(&app, &widget);
         return Ok(());
     }
 
@@ -112,6 +244,10 @@ pub async fn create_widget_window(app: AppHandle, widget: WidgetConfig) -> Resul
         WebviewUrl::External(u) => Some(u.clone()),
         _ => None,
     };
+    let home_url_str = initial_url
+        .as_ref()
+        .map(|u| u.to_string())
+        .unwrap_or_default();
     let data_dir = resolve_webview_data_dir(&app)?;
 
     let scale = app
@@ -123,6 +259,7 @@ pub async fn create_widget_window(app: AppHandle, widget: WidgetConfig) -> Resul
         .max(1.0);
     let target_w = widget.width.max(120);
     let target_h = widget.height.max(80);
+    let init_script = build_widget_init_script(widget.locked, &home_url_str);
 
     let mut builder = WebviewWindowBuilder::new(&app, &label, webview_url)
         .title(&widget.title)
@@ -131,9 +268,29 @@ pub async fn create_widget_window(app: AppHandle, widget: WidgetConfig) -> Resul
         .inner_size(target_w as f64 / scale, target_h as f64 / scale)
         .decorations(false)
         .shadow(false)
+        .resizable(!widget.locked)
         .skip_taskbar(true)
         .always_on_bottom(true)
-        .initialization_script(WIDGET_DRAG_HANDLE_SCRIPT)
+        .initialization_script(&init_script)
+        .on_page_load({
+            let widget_id = widget.id.clone();
+            move |win, payload| {
+                if payload.event() == PageLoadEvent::Finished {
+                    let app_handle = win.app_handle();
+                    if let Some(state) = app_handle.try_state::<Arc<ConfigState>>() {
+                        if let Ok(cfg) = state.config.lock() {
+                            if let Some(w) = cfg.widgets.iter().find(|w| w.id == widget_id) {
+                                let _ = win.set_zoom(w.zoom.clamp(0.5, 2.0));
+                                let _ = win.eval(&format!(
+                                    "window.__ddSetLocked && window.__ddSetLocked({});",
+                                    if w.locked { "true" } else { "false" }
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+        })
         .on_new_window(|url, _features| {
             if matches!(url.scheme(), "http" | "https") {
                 let _ = tauri_plugin_opener::open_url(url.as_str(), None::<&str>);
@@ -164,24 +321,35 @@ pub async fn create_widget_window(app: AppHandle, widget: WidgetConfig) -> Resul
     )));
     let _ = window.set_size(Size::Physical(PhysicalSize::new(target_w, target_h)));
 
-    // 最背面固定（WS_EX_TOOLWINDOW + HWND_BOTTOM + WM_WINDOWPOSCHANGING サブクラス）
+    // 最背面固定および Win32 拡張スタイル（透明度・クリック透過・NOACTIVATE）適用
     let _ = PlacementMode::Bottom;
     if let Err(e) = win32::apply_bottom_mode(&window) {
         eprintln!("[widget] failed to apply bottom mode to {label}: {e}");
     }
+    if let Err(e) = win32::apply_widget_styles(
+        &window,
+        widget.opacity,
+        widget.click_through,
+        widget.no_activate,
+    ) {
+        eprintln!("[widget] failed to apply styles to {label}: {e}");
+    }
+    let _ = window.set_zoom(widget.zoom.clamp(0.5, 2.0));
 
     // 位置・サイズ変更時のデバウンス保存
     let app_handle = app.clone();
     let widget_id = widget.id.clone();
     window.on_window_event(move |event| match event {
         WindowEvent::Moved(pos) => {
-            // Windows の最小化時（-32000 等）を誤保存しないための簡易ガード
             if pos.x <= -16000 || pos.y <= -16000 {
                 return;
             }
             if let Some(state) = app_handle.try_state::<Arc<ConfigState>>() {
                 if let Ok(mut cfg) = state.config.lock() {
                     if let Some(w) = cfg.widgets.iter_mut().find(|w| w.id == widget_id) {
+                        if w.locked {
+                            return;
+                        }
                         w.x = pos.x;
                         w.y = pos.y;
                     }
@@ -196,6 +364,9 @@ pub async fn create_widget_window(app: AppHandle, widget: WidgetConfig) -> Resul
             if let Some(state) = app_handle.try_state::<Arc<ConfigState>>() {
                 if let Ok(mut cfg) = state.config.lock() {
                     if let Some(w) = cfg.widgets.iter_mut().find(|w| w.id == widget_id) {
+                        if w.locked {
+                            return;
+                        }
                         w.width = size.width;
                         w.height = size.height;
                     }
@@ -225,13 +396,55 @@ pub fn reload_widget_window(app: &AppHandle, widget_id: &str) {
     }
 }
 
-/// 表示中の全ガジェットウィンドウを再読み込みする。
+/// 指定ガジェットウィンドウをリロードガード付きで再読み込みする。
+pub fn safe_reload_widget_window(app: &AppHandle, widget_id: &str) {
+    let label = widget_label(widget_id);
+    if let Some(win) = app.get_webview_window(&label) {
+        let _ = win.eval("window.__ddSafeReload ? window.__ddSafeReload() : location.reload();");
+    }
+}
+
+/// 表示中の全ガジェットウィンドウをリロードガード付きで再読み込みする。
 pub fn reload_all_widget_windows(app: &AppHandle) {
     for (label, win) in app.webview_windows() {
         if label.starts_with("widget-") {
-            let _ = win.reload();
+            let _ =
+                win.eval("window.__ddSafeReload ? window.__ddSafeReload() : location.reload();");
         }
     }
+}
+
+/// 定期自動リロードループを起動する（30秒ごとに経過間隔をチェック）。
+pub fn start_auto_reload_loop(app: AppHandle) {
+    std::thread::spawn(move || {
+        let mut last_reloaded: HashMap<String, Instant> = HashMap::new();
+        loop {
+            std::thread::sleep(Duration::from_secs(30));
+            let widgets = {
+                let Some(state) = app.try_state::<Arc<ConfigState>>() else {
+                    continue;
+                };
+                let Ok(cfg) = state.config.lock() else {
+                    continue;
+                };
+                cfg.widgets.clone()
+            };
+
+            let now = Instant::now();
+            for w in widgets {
+                if !w.enabled || w.auto_reload_minutes == 0 {
+                    last_reloaded.remove(&w.id);
+                    continue;
+                }
+                let interval = Duration::from_secs(u64::from(w.auto_reload_minutes) * 60);
+                let prev = last_reloaded.entry(w.id.clone()).or_insert(now);
+                if now.duration_since(*prev) >= interval {
+                    *prev = now;
+                    safe_reload_widget_window(&app, &w.id);
+                }
+            }
+        }
+    });
 }
 
 /// 設定されている全ガジェットの有効状態に合わせてウィンドウを同期する。

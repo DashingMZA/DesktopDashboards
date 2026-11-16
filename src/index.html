@@ -91,6 +91,33 @@
       padding: 4px 6px;
       font-size: 12px;
     }
+    .settings-grid {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+      padding-top: 6px;
+      border-top: 1px solid #222936;
+      font-size: 12px;
+      color: #cbd5e1;
+    }
+    .slider-field {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: #94a3b8;
+    }
+    .slider-field input[type="range"] {
+      width: 90px;
+      accent-color: #2563eb;
+      cursor: pointer;
+    }
+    .slider-field select {
+      width: auto;
+      padding: 3px 6px;
+      font-size: 11px;
+    }
     button {
       padding: 8px 12px;
       border-radius: 6px;
@@ -486,9 +513,121 @@
         bottom.appendChild(boundsRow);
         bottom.appendChild(actions);
 
+        // Phase 2 設定行（ロック・クリック透過・NOACTIVATE・透明度・ズーム・自動リロード）
+        const settingsGrid = document.createElement("div");
+        settingsGrid.className = "settings-grid";
+
+        const stateDraft = {
+          locked: !!w.locked,
+          clickThrough: !!w.click_through,
+          noActivate: !!w.no_activate,
+          opacity: typeof w.opacity === "number" ? w.opacity : 1.0,
+          zoom: typeof w.zoom === "number" ? w.zoom : 1.0,
+          autoReloadMinutes: typeof w.auto_reload_minutes === "number" ? w.auto_reload_minutes : 0,
+        };
+
+        const saveSettings = async () => {
+          try {
+            await invoke("update_widget_settings", {
+              id: w.id,
+              locked: stateDraft.locked,
+              clickThrough: stateDraft.clickThrough,
+              noActivate: stateDraft.noActivate,
+              opacity: stateDraft.opacity,
+              zoom: stateDraft.zoom,
+              autoReloadMinutes: stateDraft.autoReloadMinutes,
+            });
+          } catch (err) {
+            setStatus(`設定更新エラー: ${err}`, true);
+          }
+        };
+
+        const mkFlag = (labelText, initial, onChange) => {
+          const lbl = document.createElement("label");
+          lbl.className = "switch";
+          lbl.style.fontSize = "11px";
+          const chk = document.createElement("input");
+          chk.type = "checkbox";
+          chk.checked = initial;
+          chk.addEventListener("change", () => {
+            onChange(chk.checked);
+            saveSettings();
+          });
+          lbl.appendChild(chk);
+          lbl.appendChild(document.createTextNode(labelText));
+          return lbl;
+        };
+
+        settingsGrid.appendChild(mkFlag("ロック", stateDraft.locked, (v) => { stateDraft.locked = v; }));
+        settingsGrid.appendChild(mkFlag("クリック透過", stateDraft.clickThrough, (v) => { stateDraft.clickThrough = v; }));
+        settingsGrid.appendChild(mkFlag("フォーカス非奪取", stateDraft.noActivate, (v) => { stateDraft.noActivate = v; }));
+
+        const opWrap = document.createElement("label");
+        opWrap.className = "slider-field";
+        const opValSpan = document.createElement("span");
+        opValSpan.textContent = `${Math.round(stateDraft.opacity * 100)}%`;
+        const opInput = document.createElement("input");
+        opInput.type = "range";
+        opInput.min = "20";
+        opInput.max = "100";
+        opInput.step = "5";
+        opInput.value = String(Math.round(stateDraft.opacity * 100));
+        opInput.addEventListener("input", () => {
+          opValSpan.textContent = `${opInput.value}%`;
+        });
+        opInput.addEventListener("change", () => {
+          stateDraft.opacity = Number(opInput.value) / 100;
+          saveSettings();
+        });
+        opWrap.appendChild(document.createTextNode("透明度"));
+        opWrap.appendChild(opInput);
+        opWrap.appendChild(opValSpan);
+        settingsGrid.appendChild(opWrap);
+
+        const zoomWrap = document.createElement("label");
+        zoomWrap.className = "slider-field";
+        const zoomValSpan = document.createElement("span");
+        zoomValSpan.textContent = `${Math.round(stateDraft.zoom * 100)}%`;
+        const zoomInput = document.createElement("input");
+        zoomInput.type = "range";
+        zoomInput.min = "50";
+        zoomInput.max = "200";
+        zoomInput.step = "10";
+        zoomInput.value = String(Math.round(stateDraft.zoom * 100));
+        zoomInput.addEventListener("input", () => {
+          zoomValSpan.textContent = `${zoomInput.value}%`;
+        });
+        zoomInput.addEventListener("change", () => {
+          stateDraft.zoom = Number(zoomInput.value) / 100;
+          saveSettings();
+        });
+        zoomWrap.appendChild(document.createTextNode("ズーム"));
+        zoomWrap.appendChild(zoomInput);
+        zoomWrap.appendChild(zoomValSpan);
+        settingsGrid.appendChild(zoomWrap);
+
+        const reloadWrap = document.createElement("label");
+        reloadWrap.className = "slider-field";
+        const reloadSel = document.createElement("select");
+        for (const mins of [0, 1, 5, 15, 30, 60]) {
+          const opt = document.createElement("option");
+          opt.value = String(mins);
+          opt.textContent = mins === 0 ? "無効" : `${mins}分`;
+          if (mins === stateDraft.autoReloadMinutes) opt.selected = true;
+          reloadSel.appendChild(opt);
+        }
+        reloadSel.addEventListener("change", () => {
+          stateDraft.autoReloadMinutes = parseInt(reloadSel.value, 10) || 0;
+          saveSettings();
+        });
+        reloadWrap.appendChild(document.createTextNode("自動更新"));
+        reloadWrap.appendChild(reloadSel);
+        settingsGrid.appendChild(reloadWrap);
+
         card.appendChild(top);
         card.appendChild(srcDiv);
         card.appendChild(bottom);
+        card.appendChild(settingsGrid);
         widgetListEl.appendChild(card);
       }
     }

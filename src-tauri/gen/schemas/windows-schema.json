@@ -345,6 +345,162 @@
       "description": "Permission identifier",
       "oneOf": [
         {
+          "description": "Enables the add_widget command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-add-widget",
+          "markdownDescription": "Enables the add_widget command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the delete_widget command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-delete-widget",
+          "markdownDescription": "Enables the delete_widget command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_autostart command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-autostart",
+          "markdownDescription": "Enables the get_autostart command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_webview_data_dir command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-webview-data-dir",
+          "markdownDescription": "Enables the get_webview_data_dir command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the list_widgets command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-list-widgets",
+          "markdownDescription": "Enables the list_widgets command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the reload_all_widgets command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-reload-all-widgets",
+          "markdownDescription": "Enables the reload_all_widgets command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the reload_widget command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-reload-widget",
+          "markdownDescription": "Enables the reload_widget command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the reset_widget_position command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-reset-widget-position",
+          "markdownDescription": "Enables the reset_widget_position command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the set_autostart command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-autostart",
+          "markdownDescription": "Enables the set_autostart command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the toggle_widget command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-toggle-widget",
+          "markdownDescription": "Enables the toggle_widget command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the update_widget_bounds command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-update-widget-bounds",
+          "markdownDescription": "Enables the update_widget_bounds command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the update_widget_settings command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-update-widget-settings",
+          "markdownDescription": "Enables the update_widget_settings command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the widget_bar_action command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-widget-bar-action",
+          "markdownDescription": "Enables the widget_bar_action command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the add_widget command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-add-widget",
+          "markdownDescription": "Denies the add_widget command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the delete_widget command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-delete-widget",
+          "markdownDescription": "Denies the delete_widget command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_autostart command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-autostart",
+          "markdownDescription": "Denies the get_autostart command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_webview_data_dir command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-webview-data-dir",
+          "markdownDescription": "Denies the get_webview_data_dir command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the list_widgets command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-list-widgets",
+          "markdownDescription": "Denies the list_widgets command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the reload_all_widgets command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-reload-all-widgets",
+          "markdownDescription": "Denies the reload_all_widgets command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the reload_widget command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-reload-widget",
+          "markdownDescription": "Denies the reload_widget command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the reset_widget_position command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-reset-widget-position",
+          "markdownDescription": "Denies the reset_widget_position command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_autostart command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-autostart",
+          "markdownDescription": "Denies the set_autostart command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the toggle_widget command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-toggle-widget",
+          "markdownDescription": "Denies the toggle_widget command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the update_widget_bounds command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-update-widget-bounds",
+          "markdownDescription": "Denies the update_widget_bounds command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the update_widget_settings command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-update-widget-settings",
+          "markdownDescription": "Denies the update_widget_settings command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the widget_bar_action command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-widget-bar-action",
+          "markdownDescription": "Denies the widget_bar_action command without any pre-configured scope."
+        },
+        {
           "description": "This permission set configures if your\napplication can enable or disable auto\nstarting the application on boot.\n\n#### Granted Permissions\n\nIt allows all to check, enable and\ndisable the automatic start on boot.\n\n\n#### This default permission set includes:\n\n- `allow-enable`\n- `allow-disable`\n- `allow-is-enabled`",
           "type": "string",
           "const": "autostart:default",

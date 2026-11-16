@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-add-widget"
+description = "Enables the add_widget command without any pre-configured scope."
+commands.allow = ["add_widget"]
+
+[[permission]]
+identifier = "deny-add-widget"
+description = "Denies the add_widget command without any pre-configured scope."
+commands.deny = ["add_widget"]

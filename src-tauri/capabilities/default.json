@@ -6,6 +6,18 @@
   "permissions": [
     "core:default",
     "opener:default",
-    "dialog:default"
+    "dialog:default",
+    "allow-get-webview-data-dir",
+    "allow-list-widgets",
+    "allow-add-widget",
+    "allow-toggle-widget",
+    "allow-update-widget-bounds",
+    "allow-update-widget-settings",
+    "allow-reset-widget-position",
+    "allow-delete-widget",
+    "allow-reload-widget",
+    "allow-reload-all-widgets",
+    "allow-get-autostart",
+    "allow-set-autostart"
   ]
 }
