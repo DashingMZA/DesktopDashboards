@@ -54,7 +54,7 @@
       "endpoints": [
         "https://github.com/DashingMZA/DesktopDashboards/releases/latest/download/latest.json"
       ],
-      "pubkey": "REPLACE_WITH_YOUR_REAL_PUBLIC_KEY"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDQxOTA5MEE1NzQ2ODNDMjcKUldRblBHaDBwWkNRUVdIa1pTYzYrc2RaYnBTSk5DSk5aU3V5WHBPRUxuN1JlYVk1aXFjcDVURHIK"
     }
   }
 }
