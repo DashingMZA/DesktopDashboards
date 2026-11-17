@@ -32,6 +32,20 @@ are English.
 - `dependabot.yml` / `codeql.yml` header names corrected to
   DesktopDashboards.
 
+## 0.1.1 — 2026-11-17
+
+Patch release: the v0.1.0 release shipped without updater artifacts
+(`latest.json` / `.sig`), so the app could not self-update.
+
+### Fixed
+
+- Added the `tauri-plugin-updater` Rust plugin (dependency, plugin
+  initialisation in `lib.rs`, `updater:default` capability) — the
+  release workflow now generates and attaches `latest.json` and its
+  `.sig` signature alongside the installer and portable ZIP. The
+  v0.1.0 release is left as-is (it already has downloads); v0.1.1
+  supersedes it.
+
 ## 0.1.0 — 2026-11-16
 
 The first version. Phases 1–3 implemented (see `docs/SPEC.md`):

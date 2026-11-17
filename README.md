@@ -1,6 +1,6 @@
 # DesktopDashboards
 
-[![Release](https://img.shields.io/badge/version-v0.1.0-blue.svg)](https://github.com/DashingMZA/DesktopDashboards/releases)
+[![Release](https://img.shields.io/badge/version-v0.1.1-blue.svg)](https://github.com/DashingMZA/DesktopDashboards/releases)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6.svg)](https://www.microsoft.com/windows)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -50,7 +50,7 @@ A lightweight desktop gadget app built with Tauri v2 + WebView2 that lets you ke
 
 ## 📥 Installation
 
-Download and run the installer (`DesktopDashboards_0.1.0_x64-setup.exe`) or the portable ZIP (`desktop-dashboards-x64.zip`) from [Releases](https://github.com/DashingMZA/DesktopDashboards/releases). The installer needs no administrator privileges (per-user installation), and the desktop shortcut and uninstaller are set up automatically.
+Download and run the installer (`DesktopDashboards_0.1.1_x64-setup.exe`) or the portable ZIP (`desktop-dashboards-x64.zip`) from [Releases](https://github.com/DashingMZA/DesktopDashboards/releases). The installer needs no administrator privileges (per-user installation), and the desktop shortcut and uninstaller are set up automatically.
 
 ### If a Windows SmartScreen warning appears
 
