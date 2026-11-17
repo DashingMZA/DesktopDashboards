@@ -1,4 +1,4 @@
-# Dependabot configuration for desktop-mascot-for-muse.
+# Dependabot configuration for DesktopDashboards.
 # Keeps npm/pnpm dependencies, Cargo dependencies and GitHub Actions
 # up to date with weekly PRs.
 # Major version bumps are NOT grouped: they arrive as their own PRs
