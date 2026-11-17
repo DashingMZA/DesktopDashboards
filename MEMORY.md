@@ -31,20 +31,22 @@ back / wallpaper layer — instead of living in browser tabs.
 
 ## 2. Current Project State
 
-- **Branch:** `main`, remote at `697fb6e` (2026-11-17, "Bump version
-  to 0.1.1 (updater fix release)"). Working tree CLEAN and in sync
-  with remote (verified 2026-11-17).
+- **Branch:** `main`, remote at `6715f75` (2026-11-17, "Generate
+  updater artifacts (latest.json) on release builds"). Working tree
+  CLEAN and in sync with remote (verified 2026-11-17).
 - **Version:** 0.1.1 (package.json, Cargo.toml, tauri.conf.json, README
   badge all in sync). **v0.1.0 was PUBLISHED 2026-11-17** (tag
   `v0.1.0` @ `71341a8`, installer + portable ZIP, but NO `latest.json`
-  / `.sig` — see §8). **v0.1.1 tagged** at `697fb6e` the same day;
-  the release workflow run for it was in progress at last check.
-- **Last verified checks (2026-11-17):** CI on the updater-fix push
-  (`34e567f`) SUCCESS — the fix compiles. Cargo 1.100.0 is now
-  installed in the sandbox via rustup (2026-11-16/17), so `cargo test`
-  CAN run locally; a run for the v0.1.1 tree was started 2026-11-17
-  and was still compiling (GTK deps) at the time of this note. CI
-  remains the authority for the Windows release build. CodeQL on
+  / `.sig` — see §8). **v0.1.1 is a DRAFT** (tag @ `697fb6e`,
+  release id 448052870, installer + portable ZIP, body patched to the
+  v0.1.1 notes) — **still NO `latest.json` / `.sig`**; do NOT publish
+  it. Root cause found (see §8) and the fix is pushed as `6715f75`.
+- **Last verified checks (2026-11-17):** Release workflow run for
+  v0.1.1 (44007736059) completed SUCCESS. CI on the updater-fix push
+  (`34e567f`) SUCCESS — the fix compiles. Cargo 1.100.0 is installed
+  in the sandbox via rustup, so `cargo test` CAN run locally; a local
+  run started 2026-11-17 died when the VM was replaced (see §10).
+  CI remains the authority for the Windows release build. CodeQL on
   `28bfee2` + `63ef2b7` SUCCESS.
 - **CI:** GitHub Actions — CI + CodeQL green after the `.github` fix
   (see §7). Earlier runs were cancelled by the concurrency group when
@@ -251,6 +253,26 @@ artifacts (`latest.json`). Full steps in `release.md`.
   via API after the workflow creates it, carrying over the user's own
   "Document preparation" + "Distribution assets" sections with the
   0.1.1 installer name.
+- **v0.1.1 run: latest.json STILL missing (2026-11-17).** The release
+  workflow run (44007736059) completed SUCCESS and created draft
+  v0.1.1 (id 448052870, installer + ZIP), but again no `latest.json`
+  / `.sig`. Root cause FOUND in the run log
+  (`~/workspace/desktop-dashboards-logs/v011-release.log`):
+  "Signature not found for the updater JSON. Skipping upload..." —
+  the SAME line as v0.1.0. The plugin fix was NOT the missing piece:
+  the log shows the signing secrets WERE set (`TAURI_SIGNING_PRIVATE_KEY:
+  ***`) and the bundles WERE signed (`.sig` files exist next to the
+  exe). What never happened is the JSON generation itself:
+  `bundle.createUpdaterArtifacts` was unset in tauri.conf.json and
+  defaults to `false` — verified in the tauri-utils 2.10.3 source
+  (`Updater::default() = Bool(false)`). FIX PUSHED as `6715f75`:
+  `"createUpdaterArtifacts": true` in the `bundle` section. The
+  background release monitor died in a VM replacement (/tmp wiped)
+  before it could patch the draft body; the body was patched manually
+  afterwards (script `~/workspace/scripts/patch-desktopdashboards-v011-body.py`).
+  The v0.1.1 draft must NOT be published (no updater files) — it is
+  superseded by the next tag (re-tag v0.1.1 after deleting the draft,
+  or tag v0.1.2).
 - **Installer name (fixed-name decision):** `README.md` now names the
   versioned installer (`DesktopDashboards_0.1.0_x64-setup.exe`); the
   AGENTS.md §4 fixed-name rule (a rename step so a fixed-name download
@@ -279,6 +301,18 @@ artifacts (`latest.json`). Full steps in `release.md`.
   `.github/workflows/*.yml` fails with 403 on git/trees (App lacks
   workflows permission). Workflow files go via the owner's web-UI
   upload; verify byte-identical afterwards.
+- **Background work must not depend on /tmp.** A VM replacement
+  wipes /tmp and kills background processes: the v0.1.1 release
+  monitor and the local `cargo test` both died that way on
+  2026-11-17. Keep monitor scripts under `~/workspace/scripts/` and
+  their logs under `~/workspace/`, never /tmp.
+- **GitHub's get-release-by-tag 404s for DRAFT releases.** To check a
+  draft, list releases (`GET /releases`) and filter by tag instead.
+- **GitHub job-log downloads 302 twice** (API → signed Azure blob
+  URL, sometimes via a second hop). Do NOT forward the GitHub auth
+  header to the blob host (401); follow redirects manually without
+  auth. The download may be plain text, not a zip — check the first
+  bytes before unzipping.
 - **GitHub push-files is UTF-8 TEXT ONLY.** Binary files (PNG
   screenshots) cannot be pushed via the connector — binary assets go
   via the GitHub web UI upload; do NOT work around with PATs.
@@ -342,13 +376,12 @@ artifacts (`latest.json`). Full steps in `release.md`.
 
 ## 14. Pending Tasks and Priorities
 
-- **P0:** v0.1.1 tagged (2026-11-17); release workflow running.
-  When it finishes: verify `latest.json` + `.sig` are attached to
-  the v0.1.1 draft, patch the draft body to the v0.1.1 notes (the
-  workflow's `releaseBody` is still v0.1.0 text), then the owner
-  publishes the draft. After that, verify the updater sees the
-  release. The release notes line saying latest.json is included
-  becomes true only after that.
+- **P0:** `createUpdaterArtifacts: true` pushed (`6715f75`). Next:
+  re-tag (delete the unpublished v0.1.1 draft + tag, 0 downloads so
+  safe, and re-tag v0.1.1 at the fix commit) OR tag v0.1.2 — owner's
+  choice. Then verify `latest.json` + `.sig` are attached to the new
+  draft, patch its body to the right version notes, and publish.
+  After that, verify the updater sees the release.
 - **P1:** Decide the fixed-name installer approach for release.yml
   (README already names the versioned installer).
 - **P1:** Owner smoke-tests the app on Windows (add gadget, tray,
@@ -372,6 +405,17 @@ artifacts (`latest.json`). Full steps in `release.md`.
 
 ## 16. Memory Maintenance Log
 
+- **2026-11-17:** v0.1.1 release run SUCCESS but `latest.json` /
+  `.sig` STILL missing. Root cause found in the run log: the bundles
+  WERE signed and the signing secrets WERE set, but
+  `bundle.createUpdaterArtifacts` defaults to `false` (verified in
+  tauri-utils 2.10.3 source), so `tauri build` never generated
+  `latest.json`. Fix PUSHED as `6715f75`
+  (`"createUpdaterArtifacts": true` in tauri.conf.json). The v0.1.1
+  draft (id 448052870) must NOT be published; its body was patched to
+  the v0.1.1 notes manually after the background monitor died in a VM
+  replacement (/tmp wiped). Next: re-tag v0.1.1 (draft delete, 0
+  downloads) or tag v0.1.2 — owner's choice.
 - **2026-11-17:** v0.1.1 version bump PUSHED as `697fb6e`
   (package.json, Cargo.toml, Cargo.lock, tauri.conf.json, README,
   CHANGELOG — all 0.1.0 → 0.1.1) via the Git Data API with the PAT
