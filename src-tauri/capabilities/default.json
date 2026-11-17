@@ -7,6 +7,7 @@
     "core:default",
     "opener:default",
     "dialog:default",
+    "updater:default",
     "allow-get-webview-data-dir",
     "allow-list-widgets",
     "allow-add-widget",

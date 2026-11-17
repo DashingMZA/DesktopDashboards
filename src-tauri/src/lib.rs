@@ -607,6 +607,7 @@ pub fn run() {
             MacosLauncher::LaunchAgent,
             Some(vec!["--silent"]),
         ))
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .register_uri_scheme_protocol("widgetfile", |ctx, request| {
             widget::handle_widgetfile_protocol(ctx.app_handle(), request)
         })
