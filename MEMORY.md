@@ -31,8 +31,8 @@ back / wallpaper layer — instead of living in browser tabs.
 
 ## 2. Current Project State
 
-- **Branch:** `main`, remote at `842cb4a` (2026-11-16, "Remove root
-  pull_request_template.md (now under .github/)"). Working tree CLEAN
+- **Branch:** `main`, remote at `92fe165` (2026-11-16, "Add
+  HANDOFF_BRIEF.md for DesktopDashboards"). Working tree CLEAN
   and in sync with remote (verified 2026-11-16).
 - **Version:** 0.1.0 (package.json, Cargo.toml, tauri.conf.json, README
   badge all in sync). **No release has been published yet** — the first
@@ -330,6 +330,13 @@ artifacts (`latest.json`). Full steps in `release.md`.
 
 ## 16. Memory Maintenance Log
 
+- **2026-11-16:** `HANDOFF_BRIEF.md` added (`92fe165`) — adapted
+  from the mascot project's brief (same paste-to-another-AI format)
+  but written for DesktopDashboards from SPEC.md/DESIGN.md: R1–R9 as
+  built, architecture, security rules, current state (Phases 1–3 done,
+  v0.1.0, no release yet), open items (fixed-name installer, first
+  release, Windows smoke test). NOT a verbatim copy — the mascot brief
+  describes a different app.
 - **2026-11-16:** PR template moved into `.github/`: added as
   `.github/pull_request_template.md` (`85cd45d`, content byte-identical
   to the root copy), root copy deleted (`842cb4a`).
