@@ -1,4 +1,4 @@
-# Security Policy — Desktop Mascot for Muse
+# Security Policy — DesktopDashboards
 
 ## Reporting a vulnerability
 
@@ -17,24 +17,28 @@ issue is resolved.
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 1.1.x   | :white_check_mark: |
-| < 1.1   | :x:                |
+| 0.1.x   | :white_check_mark: |
 
-Only the latest release line receives security fixes.
+Only the latest release line receives security fixes. No release has
+been published yet; the 0.1.x line is the current development line.
 
 ## Security model
 
-Desktop Mascot for Muse is a **Windows desktop application** — there is
+DesktopDashboards is a **Windows desktop application** — there is
 no backend, no database, no user accounts, and no telemetry. What runs on
 your machine is exactly what you see in this repo, plus:
 
-- The Muse AI session, loaded in an embedded WebView from
-  `https://muse.ai` (your Muse login stays in the app's own WebView;
-  login redirects through Meta Accounts Center stay in-app)
-- Avatar videos (`.mp4`) and settings stored locally on your machine
+- The gadget pages the user registers, loaded in embedded WebViews
+  from a dedicated WebView2 profile
+  (`%LOCALAPPDATA%\DesktopDashboards\webview`). A login done in one
+  gadget is shared across gadgets, because they share that profile.
+- The gadget list and settings, stored locally in
+  `%APPDATA%\DesktopDashboards\config.json`.
 
 No personal data is collected, stored, or transmitted by the app itself.
-Your Muse conversation stays between you and Muse.
+A gadget page can only talk to the site it loads; same-origin navigation
+stays inside the gadget, and external links open in the OS default
+browser instead.
 
 ## Secrets and keys
 
@@ -45,8 +49,8 @@ Your Muse conversation stays between you and Muse.
   (`TAURI_SIGNING_PRIVATE_KEY`, plus `_PASSWORD` if set — the Tauri CLI
   does not read `.env` files); in CI it comes from GitHub repository
   Secrets. Losing the private key means shipping a new public key with
-  the next release. The key files (`MascotMuseAI.key`,
-  `MascotMuseAI.key.pub`) are gitignored.
+  the next release. The key files (`DesktopDashboards.key`,
+  `DesktopDashboards.key.pub`) are gitignored.
 - **No other secrets.** The app has no API keys, no backend credentials,
   and no `.env` values that matter. Never commit `.env` / `.env.local` —
   both are gitignored.
@@ -61,8 +65,10 @@ CI.
 
 ## Tauri capabilities (least privilege)
 
-`src-tauri/capabilities/default.json` grants only what the app needs
-(`core:default`, `opener:default`) for the main and settings windows.
+`src-tauri/capabilities/default.json` grants the manager window only
+what it needs (`core:default`, `opener:default`, `dialog:default`,
+plus the widget commands), and `src-tauri/capabilities/widgets.json`
+grants gadget windows only window dragging and the widget bar action.
 When adding features, add the narrowest permission that works — never
 broad `fs:allow-*` wildcards or `shell:allow-execute` without an
 explicit binary allow-list.
@@ -75,5 +81,3 @@ explicit binary allow-list.
   every push to `main` (see `.github/workflows/codeql.yml`).
 - Do not auto-merge dependency PRs that cross a major version boundary —
   review breaking changes first.
-- Avatar videos are user-provided local files, never committed and never
-  downloaded by the build.

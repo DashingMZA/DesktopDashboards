@@ -1,4 +1,4 @@
-# CLAUDE.md — Desktop Mascot for Muse (Claude Code operating manual)
+# CLAUDE.md — DesktopDashboards (Claude Code operating manual)
 
 Companion to `AGENTS.md` (shared rules) and `MEMORY.md` (project history).
 Read all three before acting.
@@ -20,29 +20,29 @@ Read all three before acting.
 
 ## B. Project knowledge
 
-- **What it is:** a resident Windows desktop mascot and chat-integration
-  app for Muse (a personal AI agent). Tauri 2 + vanilla JS (no frontend
-  framework). Windows-only. No backend, no DB, no auth of its own (the
-  Muse login lives in the app's WebView session).
+- **What it is:** a lightweight Windows desktop gadget app. Tauri 2 +
+  vanilla JS (no frontend framework; the frontend is a single static
+  `src/index.html`). Windows-only. No backend, no DB, no auth of its own
+  (gadgets share one WebView2 profile; logins live there).
 - **Verified versions:** pnpm 12.19.0 · node ≥ 24 · Tauri 2 · Rust edition
-  2024 · vitest 5 · Playwright (Edge). Don't assume other versions; check
-  `package.json` when in doubt.
+  2024. Don't assume other versions; check `package.json` when in doubt.
 - **Key files:** `package.json` (scripts),
   `src-tauri/tauri.conf.json` (installer metadata + updater),
-  `src-tauri/src/main.rs` / `lib.rs` (backend: session window, allowlist,
-  session reload, usage-limit), `src-tauri/src/session_bridge.js` (Muse
-  DOM bridge), `src/index.html` + `src/main.js` (mascot/session UI),
-  `src/settings.html` + `src/settings.js` (Settings window),
+  `src-tauri/src/main.rs` / `lib.rs` (entry point, windows, commands),
+  `src-tauri/src/cli.rs` (CLI parsing), `src-tauri/src/config.rs`
+  (config.json persistence), `src-tauri/src/widget.rs` (gadget windows),
+  `src-tauri/src/tray.rs` (tray menu), `src-tauri/src/win32.rs`
+  (Win32 pinning, Windows-only), `src/index.html` (manager window UI),
   `.github/workflows/release.yml` (tag-triggered Windows release),
-  `docs/SPEC.md` (feature spec, single source of truth),
+  `docs/SPEC.md` (feature spec, Draft v0.3, single source of truth),
   `.env.example` (placeholders only).
 - **Commands:**
-  - `pnpm install` / `pnpm dev` (Tauri dev — launches the mascot app) /
+  - `pnpm install` / `pnpm dev` (Tauri dev — launches the app) /
     `pnpm run build` (Tauri build, NSIS installer)
-  - `pnpm run test:unit` (vitest) · `pnpm run test:rust` (`cargo test`) ·
-    `pnpm run test:e2e` (Playwright, Windows + Edge) · `pnpm test` (all
-    three layers)
-  - No lint / typecheck / format scripts exist in this repo.
+  - `cargo test --locked --manifest-path src-tauri/Cargo.toml`
+    (Rust unit tests, 7 tests)
+  - There is no JS test suite: no `test:unit`, no `test:e2e`, no
+    `pnpm test`. No lint / typecheck / format scripts exist in this repo.
 - **Environment:** copy `.env.example` → `.env` if needed (no app
   secrets). Tauri signing vars are local-only / GitHub Secrets, never
   committed.
@@ -52,26 +52,24 @@ Read all three before acting.
   release. Requires `TAURI_SIGNING_PRIVATE_KEY` (+ optional password)
   secrets. See `release.md`.
 - **Compatibility constraints:** pnpm strict resolution; Rust edition
-  2024 (no `gen` identifiers, `unsafe extern "system"`); the session
-  bridge only recognises Muse's English UI; avatar `.mp4` files are
-  never committed.
+  2024 (no `gen` identifiers, `unsafe extern "system"`); Win32 pinning
+  code is `#[cfg(windows)]` and never compiles on Linux CI.
 
 ## C. Task execution protocol
 
 1. Translate the request into concrete requirements + acceptance criteria.
 2. Inspect current implementation and related configs/tests.
 3. Identify risks, affected modules, and whether the change touches
-   installer metadata, the release workflow, or the session bridge /
-   allowlist.
+   installer metadata, the release workflow, or the Win32 pinning code.
 4. Plan proportionally to task size; for multi-step work, set milestones.
 5. Implement with existing conventions (frontend in `src/`, backend in
    `src-tauri/`).
 6. Review the full diff for regressions and unintended changes
    (`git diff --check` for whitespace).
-7. Run relevant verification (unit tests and Rust tests at minimum for
-   code changes; `pnpm run build` for release-affecting changes) and fix
-   regressions you introduced. Note: Rust tests and e2e need Windows;
-   this environment cannot run them — say so instead of claiming them.
+7. Run relevant verification (`cargo test` at minimum for code changes;
+   `pnpm run build` for release-affecting changes) and fix regressions
+   you introduced. Note: Rust tests cannot run in the sandbox (no cargo)
+   — rely on CI and say so instead of claiming them.
 8. Update `MEMORY.md`: what changed, why, verification results, remaining
    risks/pending work. Checkpoint long tasks instead of waiting until the
    end.
@@ -89,9 +87,10 @@ Label every check exactly one of:
 - **PARTIAL** — only part of the required verification succeeded.
 
 Rules: a running dev server ≠ a passing production build. A passing
-unit test run ≠ passing Rust tests. `pnpm run build` failing means the
-installer was never produced — say so. Never mark a task "fully verified"
-while required checks are missing; list them as NOT RUN/BLOCKED instead.
+CI run ≠ a verified installer — the installer is only proven by a
+Windows build. `pnpm run build` failing means the installer was never
+produced — say so. Never mark a task "fully verified" while required
+checks are missing; list them as NOT RUN/BLOCKED instead.
 
 ## E. Memory maintenance policy
 
@@ -118,6 +117,8 @@ corrected and explain. Never invent timestamps, hashes, or results.
   tree.
 - Don't commit or push unless the user asked. If they did: single focused
   commits, and verify `git status` is clean of unintended files first
-  (never `dist/`, `node_modules/`, `src-tauri/target/`, avatar `.mp4`,
-  `.env`).
+  (never `dist/`, `node_modules/`, `src-tauri/target/`, `.env`).
+- **Workflow files cannot be pushed via the GitHub App** (403, no
+  workflows permission) — they go via the owner's web-UI upload, verified
+  byte-identical afterwards. Push-files is UTF-8 text only — no binaries.
 - Record commit hashes only after they exist.
