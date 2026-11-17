@@ -31,8 +31,8 @@ back / wallpaper layer — instead of living in browser tabs.
 
 ## 2. Current Project State
 
-- **Branch:** `main`, remote at `630ef86` (2026-11-16, "Update release
-  workflow for DesktopDashboards"). Working tree CLEAN and in sync
+- **Branch:** `main`, remote at `d3e06c5` (2026-11-16, "Rewrite project
+  docs for DesktopDashboards"). Working tree CLEAN and in sync
   with remote (verified 2026-11-16).
 - **Version:** 0.1.0 (package.json, Cargo.toml, tauri.conf.json, README
   badge all in sync). **No release has been published yet** — the first
@@ -206,7 +206,9 @@ artifacts (`latest.json`). Full steps in `release.md`.
   scripts exist; no `tests/` directory; no `src-tauri/assets/`; no
   `session_bridge.js` / `settings.html` / avatar videos; no SPEC §18
   (version history lives in `CHANGELOG.md`); Issues are ENABLED here
-  (not disabled); no `.github/pull_request_template.md` exists yet.
+  (not disabled). (A `.github/pull_request_template.md` was added by
+  the owner as `277db27` while this rewrite was in progress, so that
+  correction no longer applies — the template now exists.)
 
 ## 8. In-Progress Work
 
