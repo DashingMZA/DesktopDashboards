@@ -31,9 +31,10 @@ back / wallpaper layer — instead of living in browser tabs.
 
 ## 2. Current Project State
 
-- **Branch:** `main`, remote at `fd48e46` (2026-11-16, "Revise release
-  notes in release.yml for v0.1.0"). Working tree CLEAN
-  and in sync with remote (verified 2026-11-16).
+- **Branch:** `main`, remote at `34e567f` (2026-11-17, "Add
+  tauri-plugin-updater so the app can self-update (fixes missing
+  latest.json/.sig)"). Working tree CLEAN
+  and in sync with remote (verified 2026-11-17).
 - **Version:** 0.1.0 (package.json, Cargo.toml, tauri.conf.json, README
   badge all in sync). **No release has been published yet** — the first
   release will tag `v0.1.0`.
@@ -221,8 +222,16 @@ artifacts (`latest.json`). Full steps in `release.md`.
   (4,052,849 bytes). **Updater artifacts MISSING: no `latest.json`,
   no `.sig` attached** — the release notes' "latest.json is included"
   line is wrong, and the updater has nothing to check yet. Cause
-  UNKNOWN (signing secrets? tauri-action updater config?) — check the
-  release workflow run log. Release notes carry the user's own
+  FOUND (2026-11-17, from the release run log: "Signature not found
+  for the updater JSON. Skipping upload..."): the Rust side had no
+  updater plugin at all — no `tauri-plugin-updater` in Cargo.toml,
+  no plugin init in lib.rs, no `updater:default` capability
+  (only tauri.conf.json had the updater config). Signing secrets
+  (`TAURI_SIGNING_PRIVATE_KEY` + PASSWORD) CONFIRMED present by the
+  owner 2026-11-17. FIX PUSHED as `34e567f` (Cargo.toml + Cargo.lock
+  with updater 2.14.1 + lib.rs plugin init + capability). Re-release
+  still needed so `latest.json` / `.sig` get attached. Release notes
+  carry the user's own
   "Document preparation" addition (README/SPEC fixed-name consistency).
   release.yml with the v0.1.0 notes was uploaded by the owner as
   `fd48e46`, VERIFIED byte-identical to the prepared file.
@@ -313,17 +322,15 @@ artifacts (`latest.json`). Full steps in `release.md`.
 
 ## 14. Pending Tasks and Priorities
 
-- **P0:** Find out why `latest.json` / `.sig` were not attached to
-  the v0.1.0 release (check the release workflow run log; confirm the
-  signing secrets), fix it, and correct the release notes line that
-  says latest.json is included.
+- **P0:** Re-release so `latest.json` / `.sig` get attached (either
+  delete the v0.1.0 release + tag and re-tag v0.1.0, or tag v0.1.1),
+  then verify the updater sees the release. The release notes line
+  saying latest.json is included becomes true only after that.
 - **P1:** Decide the fixed-name installer approach for release.yml
   (README already names the versioned installer).
 - **P1:** Owner smoke-tests the app on Windows (add gadget, tray,
   lock/opacity/zoom, auto-reload, WorkerW mode).
-- **P2:** Re-run / re-attach updater artifacts (`latest.json` +
-  `.sig`) for v0.1.0 once the cause is fixed, and verify the updater
-  sees the release.
+- **P2:** (folded into P0 above — re-release covers it).
 
 ## 15. Important References
 
@@ -342,6 +349,14 @@ artifacts (`latest.json`). Full steps in `release.md`.
 
 ## 16. Memory Maintenance Log
 
+- **2026-11-17:** Updater plugin fix PUSHED as `34e567f`
+  (Cargo.toml + Cargo.lock updater 2.14.1 + lib.rs init +
+  `updater:default` capability). Push went via the Git Data API with
+  the PAT (script `~/workspace/scripts/push-desktopdashboards-updater.py`)
+  because push_files cannot carry the 138 KB Cargo.lock (CLI argument
+  list too long). Cargo.lock was regenerated with a locally installed
+  Rust toolchain (cargo 1.100.0 via rustup); other locked versions
+  unchanged (tauri 2.12.6). CI must still verify the compile.
 - **2026-11-17:** v0.1.0 RELEASED + PUBLISHED (tag `v0.1.0` @
   `71341a8`): installer + portable ZIP attached; `latest.json` +
   `.sig` MISSING from the release (see §8). Release notes (v0.1.0
