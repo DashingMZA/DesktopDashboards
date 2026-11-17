@@ -74,10 +74,27 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: "DesktopDashboards ${{ github.ref_name }}"
           releaseBody: |
-            ## Distribution assets
+            ## DesktopDashboards v0.1.0 — first release
 
-            - **Installer**: `DesktopDashboards_<version>_x64-setup.exe` (NSIS, per-user install)
-            - **Portable ZIP**: `desktop-dashboards-x64.zip` (unzip and run `DesktopDashboards.exe`)
+            A lightweight Windows desktop gadget app (Tauri 2 + WebView2). Keep any web app, Muse Space, or local HTML file resident on your desktop — pinned to the very back or embedded in the wallpaper layer — instead of in browser tabs.
+
+            ## What's new in v0.1.0 (Phases 1–3)
+
+            - **Phase 1 (MVP)**: CLI (`--add-url`, `--manager`, `--silent`), single-instance protection, atomic `config.json` persistence, pinned-to-bottom mode, navigation control, manager window + tray
+            - **Phase 2**: lock, opacity 20–100% + click-through, no-focus-steal, zoom 50–200%, auto-reload with input guard, multi-monitor DPI support
+            - **Phase 3**: `WorkerW` wallpaper embedding (survives `Win + D`, auto re-attach after Explorer restart), custom CSS injection per gadget
+            - **Session isolation**: dedicated WebView2 profile (`%LOCALAPPDATA%\DesktopDashboards\webview`) — login state shared across gadgets
+
+            ## Download (.exe)
+
+            - **Installer**: `DesktopDashboards_0.1.0_x64-setup.exe` (NSIS, per-user install, no admin needed)
+            - **Portable ZIP**: `desktop-dashboards-x64.zip` (unzip and run `desktop-dashboards.exe`; README.md included)
+            - **Requires**: Windows 10 / 11 (x64)
+
+            ## Notes
+
+            - First release. The auto-updater (`latest.json`) is included, but the update flow has not been tested end to end yet.
+            - If Windows SmartScreen warns ("Windows protected your PC"), click **More info** → **Run anyway** (new binary from an individual developer).
           releaseDraft: true
           prerelease: false
 
