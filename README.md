@@ -10,12 +10,12 @@ A lightweight desktop gadget app built with Tauri v2 + WebView2 that lets you ke
   <table>
     <tr>
       <td align="center" width="40%">
-        <b>✨ Mascot state (resident on the desktop)</b><br />
-        <img src="docs/screenshot_mascot.png" alt="Desktop Mascot for Muse Mode" width="300" />
+        <b>✨ Gadget on the desktop</b><br />
+        <img src="docs/screenshot_mascot.png" alt="Desktop gadget resident on the desktop" width="300" />
       </td>
       <td align="center" width="60%">
         <b>💬 DesktopDashboards Panel</b><br />
-        <img src="docs/screenshot_session.png" alt="Muse AI Session Chat Screen" width="500" />
+        <img src="docs/screenshot_session.png" alt="Muse session shown as a desktop gadget" width="500" />
       </td>
     </tr>
   </table>
@@ -50,7 +50,7 @@ A lightweight desktop gadget app built with Tauri v2 + WebView2 that lets you ke
 
 ## 📥 Installation
 
-Download and run the installer (`Desktop-Dashboards_x64-setup.exe`) or the portable ZIP (`desktop-dashboards-x64.zip`) from [Releases](https://github.com/DashingMZA/DesktopDashboards/releases). The installer needs no administrator privileges (per-user installation), and the desktop shortcut and uninstaller are set up automatically.
+Download and run the installer (`DesktopDashboards_0.1.0_x64-setup.exe`) or the portable ZIP (`desktop-dashboards-x64.zip`) from [Releases](https://github.com/DashingMZA/DesktopDashboards/releases). The installer needs no administrator privileges (per-user installation), and the desktop shortcut and uninstaller are set up automatically.
 
 ### If a Windows SmartScreen warning appears
 
@@ -74,8 +74,8 @@ When you run the downloaded installer or portable version, you may see a blue sc
 | Document | Role |
 | :--- | :--- |
 | **README.md** (this document) | Overview, quick start, and basic operations for this app |
-| **[Customization Guide](docs/CUSTOMIZE.md)** | User reference (how to prepare and place avatar videos, settings, tray menu details) |
-| **[Feature Specification](docs/SPEC.md)** | **The implementation source of truth (Single Source of Truth)**. Line-selection lottery specification, Title Bridge protocol, detailed behavior specification |
+| **[Customization Guide](docs/CUSTOMIZE.md)** | User reference (gadget settings, placement modes, tray menu details) |
+| **[Feature Specification](docs/SPEC.md)** | **The implementation source of truth (Single Source of Truth)**. Feature spec (Draft v0.3), detailed behavior specification |
 | **[Initial Design Document](DESIGN.md)** | Archive of the initial concept and design intent (the feature specification takes precedence for current behavior) |
 
 ---
@@ -102,16 +102,19 @@ pnpm dev
 
 ### Running automated tests
 ```powershell
-# Run all 3 layers of tests at once (Vitest unit + Playwright E2E + Rust unit)
-pnpm test
+# Rust unit tests (7 tests: CLI parsing, config, widget placement)
+cargo test --locked --manifest-path "src-tauri/Cargo.toml"
 ```
+
+There is no JavaScript test suite in this repo (no Vitest, no Playwright,
+no `tests/` directory).
 
 ### Production build
 
 Portable standalone executable (for manual placement / ZIP distribution):
 ```powershell
 cargo build --release --manifest-path "src-tauri/Cargo.toml"
-# Output: src-tauri/target/release/desktop-mascot-for-muse.exe
+# Output: src-tauri/target/release/desktop-dashboards.exe
 ```
 
 NSIS setup installer (for general distribution):
@@ -119,7 +122,7 @@ NSIS setup installer (for general distribution):
 pnpm build:installer
 # or
 npx tauri build
-# Output: src-tauri/target/release/bundle/nsis/Desktop Dashboards_<version>_x64-setup.exe
+# Output: src-tauri/target/release/bundle/nsis/DesktopDashboards_<version>_x64-setup.exe
 ```
 
 ---

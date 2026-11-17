@@ -12,7 +12,7 @@
 A lightweight desktop gadget app that lets you keep multiple arbitrary web apps, AI artifacts (such as Muse Spaces), and local HTML files resident on your Windows desktop (wallpaper / very back layer).
 
 - **Versatility as a standalone product**: Not tied to any specific web service. Simply register a URL or local HTML to turn any web screen into a desktop widget.
-- **Kick-off integration from external apps**: Besides running standalone, it can be bundled with external apps such as `Muse Desktop Mascot` and invoked with CLI arguments for seamless integration.
+- **Kick-off integration from external apps**: Besides running standalone, it can be bundled with external apps (a host application) and invoked with CLI arguments for seamless integration.
 
 ---
 
@@ -172,13 +172,21 @@ Because frameless gadget windows have no browser "Back" button, navigation is co
 
 ---
 
-## 6. External App Integration (Assuming Bundling with Muse Desktop Mascot)
+## 6. External App Integration
 
-Integration from the `Muse Desktop Mascot` side is envisioned as follows:
+Any external app can drive DesktopDashboards through its CLI — no
+bundling or host-side code is required:
 
-1. `DesktopDashboards.exe` is bundled in the build / distribution package of `Muse Desktop Mascot`.
-2. From the `Muse Desktop Mascot` tray menu or a chat screen action, it launches `DesktopDashboards.exe --add-url <Space URL>` or runs it without arguments.
-3. `DesktopDashboards` operates as an independent resident app, so gadgets on the desktop remain even when the mascot is closed.
+1. The external app launches `DesktopDashboards.exe --add-url <URL>` (or
+   runs it without arguments to bring the manager window forward).
+2. Single-instance protection passes the arguments to the already-running
+   process, which adds/enables the gadget.
+3. `DesktopDashboards` operates as an independent resident app, so gadgets
+   on the desktop remain even when the external app is closed.
+
+Bundling `DesktopDashboards.exe` inside another app's distribution
+package (with a kick-off action in that app's tray menu or UI) is a
+possible future integration; the CLI above already supports it.
 
 ---
 
@@ -186,7 +194,7 @@ Integration from the `Muse Desktop Mascot` side is envisioned as follows:
 
 ### Phase 1: MVP (Minimum Viable Configuration)
 - **M0 (top-priority spike verification / decision gate)**: Verify on a real machine whether **logging in to `muse.ai` and viewing/operating Spaces (Artifacts) works correctly** inside a fresh Tauri v2 + WebView2 with an independent `user_data_dir`.
-  - *Decision gate*: If login is rejected due to the authentication method or similar, reconsider before proceeding to the full MVP implementation whether to "limit to a public-URL mode" or "switch to default-browser authentication / a `Muse Desktop Mascot` integration approach".
+  - *Decision gate*: If login is rejected due to the authentication method or similar, reconsider before proceeding to the full MVP implementation whether to "limit to a public-URL mode" or "switch to default-browser authentication / a host-app integration approach".
 - Initial Tauri v2 project setup (`DesktopDashboards`)
 - `single-instance` + CLI arguments (`--add-url`, `--manager`, `--silent`)
 - Pinned-to-bottom mode (`HWND_BOTTOM` + `skip_taskbar` + `WS_EX_TOOLWINDOW`)
@@ -204,4 +212,4 @@ Integration from the `Muse Desktop Mascot` side is envisioned as follows:
 - `WorkerW` wallpaper-embedding mode (`Win + D` resilience) and inter-mode coordinate conversion
   - Also verify **automatic re-attachment** when `WorkerW` is recreated by an Explorer restart or wallpaper slideshow switch (e.g. via `TaskbarCreated` detection).
 - Custom CSS injection feature
-- Bundling with `Muse Desktop Mascot` and implementing the kick-off feature on its side
+- Host-app bundling (kick-off from another app's tray/menu) — future, not built; the CLI (`--add-url`) already supports it from any external app.
