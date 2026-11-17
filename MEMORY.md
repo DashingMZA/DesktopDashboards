@@ -31,8 +31,8 @@ back / wallpaper layer — instead of living in browser tabs.
 
 ## 2. Current Project State
 
-- **Branch:** `main`, remote at `92fe165` (2026-11-16, "Add
-  HANDOFF_BRIEF.md for DesktopDashboards"). Working tree CLEAN
+- **Branch:** `main`, remote at `fd48e46` (2026-11-16, "Revise release
+  notes in release.yml for v0.1.0"). Working tree CLEAN
   and in sync with remote (verified 2026-11-16).
 - **Version:** 0.1.0 (package.json, Cargo.toml, tauri.conf.json, README
   badge all in sync). **No release has been published yet** — the first
@@ -214,10 +214,18 @@ artifacts (`latest.json`). Full steps in `release.md`.
 
 ## 8. In-Progress Work
 
-- **First release (v0.1.0) not yet tagged.** Release workflow is
-  fixed and CI is green, but no `v*` tag has been pushed and no
-  release assets exist. Signing secrets (`TAURI_SIGNING_PRIVATE_KEY`)
-  still need confirming in repo Settings before the first tag.
+- **First release (v0.1.0) PUBLISHED 2026-11-17** (tag `v0.1.0` @
+  `71341a8`, release "DesktopDashboards v0.1.0", draft=false).
+  Assets: installer `DesktopDashboards_0.1.0_x64-setup.exe`
+  (2,870,456 bytes) + portable ZIP `desktop-dashboards-x64.zip`
+  (4,052,849 bytes). **Updater artifacts MISSING: no `latest.json`,
+  no `.sig` attached** — the release notes' "latest.json is included"
+  line is wrong, and the updater has nothing to check yet. Cause
+  UNKNOWN (signing secrets? tauri-action updater config?) — check the
+  release workflow run log. Release notes carry the user's own
+  "Document preparation" addition (README/SPEC fixed-name consistency).
+  release.yml with the v0.1.0 notes was uploaded by the owner as
+  `fd48e46`, VERIFIED byte-identical to the prepared file.
 - **Installer name (fixed-name decision):** `README.md` now names the
   versioned installer (`DesktopDashboards_0.1.0_x64-setup.exe`); the
   AGENTS.md §4 fixed-name rule (a rename step so a fixed-name download
@@ -290,7 +298,9 @@ artifacts (`latest.json`). Full steps in `release.md`.
 
 - Rust tests never run in sandbox — Windows verification depends on
   the owner + CI.
-- No release published yet; the updater flow is untested end to end.
+- v0.1.0 is published, but `latest.json` + `.sig` were NOT attached
+  to the release — the updater flow is untested AND currently has
+  nothing to check.
 - The screenshot asset is still named `docs/screenshot_mascot.png`
   (copied filename from the mascot project); renaming it would need a
   binary file move via the web UI — cosmetic only.
@@ -303,15 +313,17 @@ artifacts (`latest.json`). Full steps in `release.md`.
 
 ## 14. Pending Tasks and Priorities
 
-- **P0:** Confirm signing secrets, tag `v0.1.0`, publish the first
-  release (draft → review assets → publish), verify the updater sees
-  it.
+- **P0:** Find out why `latest.json` / `.sig` were not attached to
+  the v0.1.0 release (check the release workflow run log; confirm the
+  signing secrets), fix it, and correct the release notes line that
+  says latest.json is included.
 - **P1:** Decide the fixed-name installer approach for release.yml
   (README already names the versioned installer).
 - **P1:** Owner smoke-tests the app on Windows (add gadget, tray,
   lock/opacity/zoom, auto-reload, WorkerW mode).
-- **P2:** First `v*` tag release end-to-end (installer + ZIP +
-  `latest.json`).
+- **P2:** Re-run / re-attach updater artifacts (`latest.json` +
+  `.sig`) for v0.1.0 once the cause is fixed, and verify the updater
+  sees the release.
 
 ## 15. Important References
 
@@ -330,6 +342,11 @@ artifacts (`latest.json`). Full steps in `release.md`.
 
 ## 16. Memory Maintenance Log
 
+- **2026-11-17:** v0.1.0 RELEASED + PUBLISHED (tag `v0.1.0` @
+  `71341a8`): installer + portable ZIP attached; `latest.json` +
+  `.sig` MISSING from the release (see §8). Release notes (v0.1.0
+  message, Phases 1–3 + .exe downloads) went in via release.yml
+  `fd48e46`, byte-identical to the prepared file.
 - **2026-11-16:** `HANDOFF_BRIEF.md` added (`92fe165`) — adapted
   from the mascot project's brief (same paste-to-another-AI format)
   but written for DesktopDashboards from SPEC.md/DESIGN.md: R1–R9 as
