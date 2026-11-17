@@ -31,23 +31,28 @@ back / wallpaper layer — instead of living in browser tabs.
 
 ## 2. Current Project State
 
-- **Branch:** `main`, remote at `6715f75` (2026-11-17, "Generate
-  updater artifacts (latest.json) on release builds"). Working tree
-  CLEAN and in sync with remote (verified 2026-11-17).
+- **Branch:** `main`, remote at `d485165` (2026-11-17, "Update
+  MEMORY.md: createUpdaterArtifacts fix pushed, v0.1.1 re-tag
+  pending"). Working tree CLEAN and in sync with remote (verified
+  2026-11-17).
 - **Version:** 0.1.1 (package.json, Cargo.toml, tauri.conf.json, README
   badge all in sync). **v0.1.0 was PUBLISHED 2026-11-17** (tag
   `v0.1.0` @ `71341a8`, installer + portable ZIP, but NO `latest.json`
-  / `.sig` — see §8). **v0.1.1 is a DRAFT** (tag @ `697fb6e`,
-  release id 448052870, installer + portable ZIP, body patched to the
-  v0.1.1 notes) — **still NO `latest.json` / `.sig`**; do NOT publish
-  it. Root cause found (see §8) and the fix is pushed as `6715f75`.
+  / `.sig` — see §8). **v0.1.1 is a DRAFT, ready to publish**
+  (tag @ `d485165`, release id 448098868): installer + portable ZIP
+  + installer `.sig` + **`latest.json`** (contents verified via API:
+  version 0.1.1, `windows-x86_64` + `windows-x86_64-nsis` platforms
+  with minisign signatures, download URL pointing at the v0.1.1
+  installer). Body patched to the v0.1.1 notes. The `notes` inside
+  latest.json are still the v0.1.0 text (they come from release.yml's
+  releaseBody at build time — cosmetic only).
 - **Last verified checks (2026-11-17):** Release workflow run for
-  v0.1.1 (44007736059) completed SUCCESS. CI on the updater-fix push
-  (`34e567f`) SUCCESS — the fix compiles. Cargo 1.100.0 is installed
-  in the sandbox via rustup, so `cargo test` CAN run locally; a local
-  run started 2026-11-17 died when the VM was replaced (see §10).
-  CI remains the authority for the Windows release build. CodeQL on
-  `28bfee2` + `63ef2b7` SUCCESS.
+  the re-tagged v0.1.1 (44012965961) completed SUCCESS. CI on the
+  updater-fix push (`34e567f`) SUCCESS — the fix compiles. Cargo
+  1.100.0 is installed in the sandbox via rustup, so `cargo test`
+  CAN run locally; a local run started 2026-11-17 died when the VM
+  was replaced (see §10). CI remains the authority for the Windows
+  release build. CodeQL on `28bfee2` + `63ef2b7` SUCCESS.
 - **CI:** GitHub Actions — CI + CodeQL green after the `.github` fix
   (see §7). Earlier runs were cancelled by the concurrency group when
   successive uploads superseded them — expected, not a failure.
@@ -273,6 +278,19 @@ artifacts (`latest.json`). Full steps in `release.md`.
   The v0.1.1 draft must NOT be published (no updater files) — it is
   superseded by the next tag (re-tag v0.1.1 after deleting the draft,
   or tag v0.1.2).
+- **v0.1.1 re-tagged: latest.json ARRIVED (2026-11-17).** The old
+  draft was deleted, the tag re-created at `d485165` (includes the
+  `createUpdaterArtifacts` fix), and the new Release run (44012965961)
+  completed SUCCESS. The new draft (id 448098868) has 4 assets: ZIP,
+  installer, installer `.sig`, **`latest.json`** — contents verified
+  via API (version 0.1.1, `windows-x86_64` + `windows-x86_64-nsis`
+  platforms with minisign signatures, download URL pointing at the
+  v0.1.1 installer). The draft got orphaned to `untagged-...` TWICE:
+  deleting a tag and re-creating it does NOT re-link its draft
+  release — it must be re-linked with PATCH `tag_name` (done here,
+  verified in the releases list). Body patched to the v0.1.1 notes.
+  **Ready to publish** — after publishing, the updater endpoint
+  (`.../releases/latest/download/latest.json`) serves v0.1.1.
 - **Installer name (fixed-name decision):** `README.md` now names the
   versioned installer (`DesktopDashboards_0.1.0_x64-setup.exe`); the
   AGENTS.md §4 fixed-name rule (a rename step so a fixed-name download
@@ -308,6 +326,11 @@ artifacts (`latest.json`). Full steps in `release.md`.
   their logs under `~/workspace/`, never /tmp.
 - **GitHub's get-release-by-tag 404s for DRAFT releases.** To check a
   draft, list releases (`GET /releases`) and filter by tag instead.
+- **Deleting + re-creating a tag orphans its draft release.**
+  The draft's tag becomes `untagged-<hex>` and re-creating the tag
+  does NOT re-link it — re-link with PATCH `/releases/{id}`
+  `{"tag_name": "<tag>"}` and verify in the releases list. Happened
+  twice for v0.1.1 on 2026-11-17.
 - **GitHub job-log downloads 302 twice** (API → signed Azure blob
   URL, sometimes via a second hop). Do NOT forward the GitHub auth
   header to the blob host (401); follow redirects manually without
@@ -376,12 +399,12 @@ artifacts (`latest.json`). Full steps in `release.md`.
 
 ## 14. Pending Tasks and Priorities
 
-- **P0:** `createUpdaterArtifacts: true` pushed (`6715f75`). Next:
-  re-tag (delete the unpublished v0.1.1 draft + tag, 0 downloads so
-  safe, and re-tag v0.1.1 at the fix commit) OR tag v0.1.2 — owner's
-  choice. Then verify `latest.json` + `.sig` are attached to the new
-  draft, patch its body to the right version notes, and publish.
-  After that, verify the updater sees the release.
+- **P0:** Publish the v0.1.1 draft (owner clicks Publish on the
+  GitHub release page). Then verify the updater sees the release:
+  the app on v0.1.0 should offer the v0.1.1 update, and
+  `.../releases/latest/download/latest.json` should return the
+  v0.1.1 JSON. The release notes line saying latest.json is
+  included becomes true once published.
 - **P1:** Decide the fixed-name installer approach for release.yml
   (README already names the versioned installer).
 - **P1:** Owner smoke-tests the app on Windows (add gadget, tray,
@@ -405,6 +428,13 @@ artifacts (`latest.json`). Full steps in `release.md`.
 
 ## 16. Memory Maintenance Log
 
+- **2026-11-17:** v0.1.1 re-tagged and **latest.json VERIFIED**:
+  draft (id 448098868) has ZIP + installer + installer `.sig` +
+  `latest.json` (version 0.1.1, both Windows platforms with minisign
+  signatures, correct download URL). Tag was deleted + re-created,
+  orphaning the draft to `untagged-...` — re-linked via PATCH
+  `tag_name: v0.1.1`. Body patched to the v0.1.1 notes. Draft ready
+  to publish; updater endpoint serves it once published.
 - **2026-11-17:** v0.1.1 release run SUCCESS but `latest.json` /
   `.sig` STILL missing. Root cause found in the run log: the bundles
   WERE signed and the signing secrets WERE set, but
