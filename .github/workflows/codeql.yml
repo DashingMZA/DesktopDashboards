@@ -1,5 +1,5 @@
-# CodeQL code scanning for desktop-mascot-for-muse.
-# Analyzes the JavaScript frontend (src/), the Rust backend
+# CodeQL code scanning for DesktopDashboards.
+# Analyzes the JavaScript frontend (src/index.html, inline script), the Rust backend
 # (src-tauri/) and the workflow files themselves (actions).
 # All three languages use build-mode "none": CodeQL builds the
 # database directly from the source, so no cargo build (and no
