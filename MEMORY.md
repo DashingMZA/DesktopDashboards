@@ -38,21 +38,24 @@ back / wallpaper layer — instead of living in browser tabs.
 - **Version:** 0.1.1 (package.json, Cargo.toml, tauri.conf.json, README
   badge all in sync). **v0.1.0 was PUBLISHED 2026-11-17** (tag
   `v0.1.0` @ `71341a8`, installer + portable ZIP, but NO `latest.json`
-  / `.sig` — see §8). **v0.1.1 is a DRAFT, ready to publish**
+  / `.sig` — see §8). **v0.1.1 PUBLISHED 2026-11-17T04:05:30Z**
   (tag @ `d485165`, release id 448098868): installer + portable ZIP
-  + installer `.sig` + **`latest.json`** (contents verified via API:
-  version 0.1.1, `windows-x86_64` + `windows-x86_64-nsis` platforms
-  with minisign signatures, download URL pointing at the v0.1.1
-  installer). Body patched to the v0.1.1 notes. The `notes` inside
-  latest.json are still the v0.1.0 text (they come from release.yml's
-  releaseBody at build time — cosmetic only).
+  + installer `.sig` + **`latest.json`** (contents verified via API
+  and via the public updater endpoint: version 0.1.1, `windows-x86_64`
+  + `windows-x86_64-nsis` platforms with minisign signatures,
+  download URL pointing at the v0.1.1 installer). Body is the v0.1.1
+  notes. The `notes` inside latest.json are still the v0.1.0 text
+  (they come from release.yml's releaseBody at build time — cosmetic
+  only).
 - **Last verified checks (2026-11-17):** Release workflow run for
-  the re-tagged v0.1.1 (44012965961) completed SUCCESS. CI on the
-  updater-fix push (`34e567f`) SUCCESS — the fix compiles. Cargo
-  1.100.0 is installed in the sandbox via rustup, so `cargo test`
-  CAN run locally; a local run started 2026-11-17 died when the VM
-  was replaced (see §10). CI remains the authority for the Windows
-  release build. CodeQL on `28bfee2` + `63ef2b7` SUCCESS.
+  the re-tagged v0.1.1 (44012965961) completed SUCCESS; v0.1.1
+  published and the public updater endpoint
+  (`.../releases/latest/download/latest.json`) serves the v0.1.1
+  JSON. CI on the updater-fix push (`34e567f`) SUCCESS — the fix
+  compiles. Cargo 1.100.0 is installed in the sandbox via rustup, so
+  `cargo test` CAN run locally; a local run started 2026-11-17 died
+  when the VM was replaced (see §10). CI remains the authority for
+  the Windows release build. CodeQL on `28bfee2` + `63ef2b7` SUCCESS.
 - **CI:** GitHub Actions — CI + CodeQL green after the `.github` fix
   (see §7). Earlier runs were cancelled by the concurrency group when
   successive uploads superseded them — expected, not a failure.
@@ -291,6 +294,13 @@ artifacts (`latest.json`). Full steps in `release.md`.
   verified in the releases list). Body patched to the v0.1.1 notes.
   **Ready to publish** — after publishing, the updater endpoint
   (`.../releases/latest/download/latest.json`) serves v0.1.1.
+- **v0.1.1 PUBLISHED (2026-11-17T04:05:30Z).** The owner said
+  "publish b kr do" — the draft was published via API (`draft:
+  false`). Verified: `/releases/latest` returns v0.1.1 with all 4
+  assets, and the public updater endpoint serves the v0.1.1 JSON
+  (version 0.1.1, both platforms, signatures present). The updater
+  flow is live server-side; the app-side check (v0.1.0 install
+  offering the v0.1.1 update) still needs the owner's Windows test.
 - **Installer name (fixed-name decision):** `README.md` now names the
   versioned installer (`DesktopDashboards_0.1.0_x64-setup.exe`); the
   AGENTS.md §4 fixed-name rule (a rename step so a fixed-name download
@@ -399,12 +409,11 @@ artifacts (`latest.json`). Full steps in `release.md`.
 
 ## 14. Pending Tasks and Priorities
 
-- **P0:** Publish the v0.1.1 draft (owner clicks Publish on the
-  GitHub release page). Then verify the updater sees the release:
-  the app on v0.1.0 should offer the v0.1.1 update, and
-  `.../releases/latest/download/latest.json` should return the
-  v0.1.1 JSON. The release notes line saying latest.json is
-  included becomes true once published.
+- **P0:** v0.1.1 is published with `latest.json` — the updater
+  flow is live server-side. Remaining: owner verifies on Windows
+  that a v0.1.0 install offers the v0.1.1 update (and smoke-tests
+  the app: add gadget, tray, lock/opacity/zoom, auto-reload,
+  WorkerW mode).
 - **P1:** Decide the fixed-name installer approach for release.yml
   (README already names the versioned installer).
 - **P1:** Owner smoke-tests the app on Windows (add gadget, tray,
@@ -428,6 +437,12 @@ artifacts (`latest.json`). Full steps in `release.md`.
 
 ## 16. Memory Maintenance Log
 
+- **2026-11-17:** v0.1.1 PUBLISHED (2026-11-17T04:05:30Z, release id
+  448098868) on the owner's word. Verified: `/releases/latest`
+  returns v0.1.1 with all 4 assets, and the public updater endpoint
+  serves the v0.1.1 JSON (version 0.1.1, both platforms, signatures
+  present). Updater flow live server-side; app-side update check
+  still needs the owner's Windows test.
 - **2026-11-17:** v0.1.1 re-tagged and **latest.json VERIFIED**:
   draft (id 448098868) has ZIP + installer + installer `.sig` +
   `latest.json` (version 0.1.1, both Windows platforms with minisign
