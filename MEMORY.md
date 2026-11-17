@@ -31,8 +31,9 @@ back / wallpaper layer — instead of living in browser tabs.
 
 ## 2. Current Project State
 
-- **Branch:** `main`, remote at `d3e06c5` (2026-11-16, "Rewrite project
-  docs for DesktopDashboards"). Working tree CLEAN and in sync
+- **Branch:** `main`, remote at `7a15922` (2026-11-16, "Fix README
+  installer name and SPEC external-integration section for
+  DesktopDashboards"). Working tree CLEAN and in sync
   with remote (verified 2026-11-16).
 - **Version:** 0.1.0 (package.json, Cargo.toml, tauri.conf.json, README
   badge all in sync). **No release has been published yet** — the first
@@ -206,9 +207,10 @@ artifacts (`latest.json`). Full steps in `release.md`.
   scripts exist; no `tests/` directory; no `src-tauri/assets/`; no
   `session_bridge.js` / `settings.html` / avatar videos; no SPEC §18
   (version history lives in `CHANGELOG.md`); Issues are ENABLED here
-  (not disabled). (A `.github/pull_request_template.md` was added by
-  the owner as `277db27` while this rewrite was in progress, so that
-  correction no longer applies — the template now exists.)
+  (not disabled). (A `pull_request_template.md` was added by the
+  owner at the repo ROOT as `277db27` while this rewrite was in
+  progress — not under `.github/` — so that correction no longer
+  applies; the template now exists at the root.)
 
 ## 8. In-Progress Work
 
@@ -216,14 +218,10 @@ artifacts (`latest.json`). Full steps in `release.md`.
   fixed and CI is green, but no `v*` tag has been pushed and no
   release assets exist. Signing secrets (`TAURI_SIGNING_PRIVATE_KEY`)
   still need confirming in repo Settings before the first tag.
-- **Installer name:** tauri-action attaches the versioned installer
-  name (`DesktopDashboards_<version>_x64-setup.exe`); `README.md`
-  still names it `Desktop-Dashboards_x64-setup.exe`, which does not
-  match. The fixed-name rule from the copied AGENTS.md §4 is UNDECIDED
-  — a rename step would be needed for fixed-name download links.
-- **SPEC.md §6** still sketches bundling with "Muse Desktop Mascot"
-  as a possible future integration; that is a spec sketch, not a
-  built feature.
+- **Installer name (fixed-name decision):** `README.md` now names the
+  versioned installer (`DesktopDashboards_0.1.0_x64-setup.exe`); the
+  AGENTS.md §4 fixed-name rule (a rename step so a fixed-name download
+  link resolves) is still UNDECIDED.
 - Owner to smoke-test the app on Windows (`pnpm dev` / installer).
 
 ## 9. Bugs and Troubleshooting
@@ -293,11 +291,11 @@ artifacts (`latest.json`). Full steps in `release.md`.
 - Rust tests never run in sandbox — Windows verification depends on
   the owner + CI.
 - No release published yet; the updater flow is untested end to end.
-- `README.md` names the installer `Desktop-Dashboards_x64-setup.exe`,
-  but Tauri produces the versioned name
-  `DesktopDashboards_<version>_x64-setup.exe`.
-- `SPEC.md` §6 references bundling with an external mascot app that
-  is not built; treat it as a sketch.
+- The screenshot asset is still named `docs/screenshot_mascot.png`
+  (copied filename from the mascot project); renaming it would need a
+  binary file move via the web UI — cosmetic only.
+- `pull_request_template.md` lives at the repo ROOT, not under
+  `.github/` (owner's `277db27`); GitHub accepts both locations.
 - Early git history carries Japanese commit messages from the
   project's origin; the app and docs are English.
 - No accessibility audit has been run (see `ACCESSIBILITY.md`).
@@ -307,8 +305,8 @@ artifacts (`latest.json`). Full steps in `release.md`.
 - **P0:** Confirm signing secrets, tag `v0.1.0`, publish the first
   release (draft → review assets → publish), verify the updater sees
   it.
-- **P1:** Fix the installer name in `README.md` (or decide the
-  fixed-name approach for release.yml).
+- **P1:** Decide the fixed-name installer approach for release.yml
+  (README already names the versioned installer).
 - **P1:** Owner smoke-tests the app on Windows (add gadget, tray,
   lock/opacity/zoom, auto-reload, WorkerW mode).
 - **P2:** First `v*` tag release end-to-end (installer + ZIP +
@@ -331,6 +329,13 @@ artifacts (`latest.json`). Full steps in `release.md`.
 
 ## 16. Memory Maintenance Log
 
+- **2026-11-16:** `README.md` + `docs/SPEC.md` cleaned up
+  (`7a15922`): installer name corrected to the versioned
+  `DesktopDashboards_0.1.0_x64-setup.exe`, portable-exe output path
+  fixed (`desktop-dashboards.exe`), "3 layers of tests / `pnpm test`"
+  replaced with the real `cargo test` command, docs-table descriptions
+  fixed (no avatar videos, no "Title Bridge"), SPEC §6 rewritten as
+  generic external-app CLI integration (no mascot bundling).
 - **2026-11-16:** Created this `MEMORY.md` for DesktopDashboards
   (the repo previously had none — the uploaded `MEMORY.md` was the
   desktop-mascot project's file), plus rewrote `CONTRIBUTING.md`,
