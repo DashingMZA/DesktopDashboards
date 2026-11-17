@@ -31,18 +31,21 @@ back / wallpaper layer — instead of living in browser tabs.
 
 ## 2. Current Project State
 
-- **Branch:** `main`, remote at `34e567f` (2026-11-17, "Add
-  tauri-plugin-updater so the app can self-update (fixes missing
-  latest.json/.sig)"). Working tree CLEAN
-  and in sync with remote (verified 2026-11-17).
-- **Version:** 0.1.0 (package.json, Cargo.toml, tauri.conf.json, README
-  badge all in sync). **No release has been published yet** — the first
-  release will tag `v0.1.0`.
-- **Last verified checks (2026-11-16):** CI on `630ef86` SUCCESS
-  (pnpm install + Rust tests green on the runner). CodeQL runs on
-  `28bfee2` + `63ef2b7` SUCCESS; the `630ef86` run was still in
-  progress at last check. `pnpm run build` (NSIS installer) NOT RUN —
-  owner builds on Windows. Rust tests NOT RUN in sandbox (no cargo).
+- **Branch:** `main`, remote at `697fb6e` (2026-11-17, "Bump version
+  to 0.1.1 (updater fix release)"). Working tree CLEAN and in sync
+  with remote (verified 2026-11-17).
+- **Version:** 0.1.1 (package.json, Cargo.toml, tauri.conf.json, README
+  badge all in sync). **v0.1.0 was PUBLISHED 2026-11-17** (tag
+  `v0.1.0` @ `71341a8`, installer + portable ZIP, but NO `latest.json`
+  / `.sig` — see §8). **v0.1.1 tagged** at `697fb6e` the same day;
+  the release workflow run for it was in progress at last check.
+- **Last verified checks (2026-11-17):** CI on the updater-fix push
+  (`34e567f`) SUCCESS — the fix compiles. Cargo 1.100.0 is now
+  installed in the sandbox via rustup (2026-11-16/17), so `cargo test`
+  CAN run locally; a run for the v0.1.1 tree was started 2026-11-17
+  and was still compiling (GTK deps) at the time of this note. CI
+  remains the authority for the Windows release build. CodeQL on
+  `28bfee2` + `63ef2b7` SUCCESS.
 - **CI:** GitHub Actions — CI + CodeQL green after the `.github` fix
   (see §7). Earlier runs were cancelled by the concurrency group when
   successive uploads superseded them — expected, not a failure.
@@ -235,6 +238,19 @@ artifacts (`latest.json`). Full steps in `release.md`.
   "Document preparation" addition (README/SPEC fixed-name consistency).
   release.yml with the v0.1.0 notes was uploaded by the owner as
   `fd48e46`, VERIFIED byte-identical to the prepared file.
+- **v0.1.1 (2026-11-17):** re-tagging v0.1.0 was ABORTED — the
+  published v0.1.0 release had 3 downloads by then (0 at the first
+  check), so deleting it would have broken live download links. The
+  user chose v0.1.1 instead. Version bumped to 0.1.1 everywhere
+  (package.json, Cargo.toml, Cargo.lock via `cargo metadata`, 
+  tauri.conf.json, README badge + installer name, CHANGELOG entry)
+  and PUSHED as `697fb6e`; tag `v0.1.1` created at that commit and the
+  release workflow run started. NOTE: `release.yml`'s `releaseBody`
+  is still the v0.1.0 text (workflow files can only be uploaded by the
+  owner via web UI) — the v0.1.1 draft release's body is to be PATCHED
+  via API after the workflow creates it, carrying over the user's own
+  "Document preparation" + "Distribution assets" sections with the
+  0.1.1 installer name.
 - **Installer name (fixed-name decision):** `README.md` now names the
   versioned installer (`DesktopDashboards_0.1.0_x64-setup.exe`); the
   AGENTS.md §4 fixed-name rule (a rename step so a fixed-name download
@@ -266,9 +282,11 @@ artifacts (`latest.json`). Full steps in `release.md`.
 - **GitHub push-files is UTF-8 TEXT ONLY.** Binary files (PNG
   screenshots) cannot be pushed via the connector — binary assets go
   via the GitHub web UI upload; do NOT work around with PATs.
-- **Never claim a Rust fix is compile-verified in the sandbox.** No
-  cargo/rustc here — Rust tests are verified by CI and by the owner's
-  Windows runs only.
+- **Never claim a Rust fix is compile-verified in the sandbox
+  without running it.** Cargo 1.100.0 is installed here now (rustup,
+  2026-11-16/17), so `cargo test` CAN run locally — but it compiles
+  the full GTK stack first (slow) and the app itself is Windows-only,
+  so CI remains the authority for the release build.
 - **Copied docs lie.** The docs set copied from another project named
   the wrong app, the wrong scripts, the wrong files, and a SPEC
   section that does not exist. Verify every doc claim against the
@@ -305,11 +323,13 @@ artifacts (`latest.json`). Full steps in `release.md`.
 
 ## 13. Known Limitations and Technical Debt
 
-- Rust tests never run in sandbox — Windows verification depends on
-  the owner + CI.
+- Rust tests can now run in the sandbox (cargo 1.100.0 via rustup,
+  2026-11-17) but take a long first compile (GTK deps); Windows
+  verification still depends on the owner + CI.
 - v0.1.0 is published, but `latest.json` + `.sig` were NOT attached
-  to the release — the updater flow is untested AND currently has
-  nothing to check.
+  to the release — v0.1.1 (tagged 2026-11-17) is the release that
+  should carry them; verify the attachments once its workflow run
+  finishes, then publish the draft.
 - The screenshot asset is still named `docs/screenshot_mascot.png`
   (copied filename from the mascot project); renaming it would need a
   binary file move via the web UI — cosmetic only.
@@ -322,10 +342,13 @@ artifacts (`latest.json`). Full steps in `release.md`.
 
 ## 14. Pending Tasks and Priorities
 
-- **P0:** Re-release so `latest.json` / `.sig` get attached (either
-  delete the v0.1.0 release + tag and re-tag v0.1.0, or tag v0.1.1),
-  then verify the updater sees the release. The release notes line
-  saying latest.json is included becomes true only after that.
+- **P0:** v0.1.1 tagged (2026-11-17); release workflow running.
+  When it finishes: verify `latest.json` + `.sig` are attached to
+  the v0.1.1 draft, patch the draft body to the v0.1.1 notes (the
+  workflow's `releaseBody` is still v0.1.0 text), then the owner
+  publishes the draft. After that, verify the updater sees the
+  release. The release notes line saying latest.json is included
+  becomes true only after that.
 - **P1:** Decide the fixed-name installer approach for release.yml
   (README already names the versioned installer).
 - **P1:** Owner smoke-tests the app on Windows (add gadget, tray,
@@ -349,6 +372,16 @@ artifacts (`latest.json`). Full steps in `release.md`.
 
 ## 16. Memory Maintenance Log
 
+- **2026-11-17:** v0.1.1 version bump PUSHED as `697fb6e`
+  (package.json, Cargo.toml, Cargo.lock, tauri.conf.json, README,
+  CHANGELOG — all 0.1.0 → 0.1.1) via the Git Data API with the PAT
+  (script `~/workspace/scripts/push-desktopdashboards-v011.py`);
+  tag `v0.1.1` created at that commit, release workflow run started.
+  Re-tagging v0.1.0 was aborted first: the release had 3 downloads
+  by then, and deleting it would have broken live links. CI on the
+  updater-fix push (`34e567f`) SUCCESS. Cargo 1.100.0 now in the
+  sandbox (rustup); local `cargo test` started for the v0.1.1 tree,
+  still compiling at the time of this note.
 - **2026-11-17:** Updater plugin fix PUSHED as `34e567f`
   (Cargo.toml + Cargo.lock updater 2.14.1 + lib.rs init +
   `updater:default` capability). Push went via the Git Data API with
