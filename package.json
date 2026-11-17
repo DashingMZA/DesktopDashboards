@@ -14,11 +14,11 @@
   },
   "homepage": "https://github.com/DashingMZA/DesktopDashboards#readme",
   "keywords": [
-    "Muse AI Mascot",
-    "Mascot for Muse AI",
-    "Desktop Mascot for Muse AI",
-    "Windows Desktop Mascot for Muse AI",
-    "Windows Desktop Mascot"
+    "Lightweight Windows Desktop Web Gadget App",
+    "Lightweight Windows Desktop Web Gadget",
+    "Lightweight Windows Desktop Gadget",
+    "Windows Desktop Web Gadget App",
+    "Windows Desktop Web Gadget"
   ],
   "packageManager": "pnpm@12.19.0",
   "engines": {
