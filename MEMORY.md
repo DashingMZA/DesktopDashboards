@@ -31,10 +31,9 @@ back / wallpaper layer — instead of living in browser tabs.
 
 ## 2. Current Project State
 
-- **Branch:** `main`, remote at `7a15922` (2026-11-16, "Fix README
-  installer name and SPEC external-integration section for
-  DesktopDashboards"). Working tree CLEAN and in sync
-  with remote (verified 2026-11-16).
+- **Branch:** `main`, remote at `842cb4a` (2026-11-16, "Remove root
+  pull_request_template.md (now under .github/)"). Working tree CLEAN
+  and in sync with remote (verified 2026-11-16).
 - **Version:** 0.1.0 (package.json, Cargo.toml, tauri.conf.json, README
   badge all in sync). **No release has been published yet** — the first
   release will tag `v0.1.0`.
@@ -209,8 +208,9 @@ artifacts (`latest.json`). Full steps in `release.md`.
   (version history lives in `CHANGELOG.md`); Issues are ENABLED here
   (not disabled). (A `pull_request_template.md` was added by the
   owner at the repo ROOT as `277db27` while this rewrite was in
-  progress — not under `.github/` — so that correction no longer
-  applies; the template now exists at the root.)
+  progress, then moved into `.github/` as `85cd45d` (root copy removed
+  as `842cb4a`) — so that correction no longer applies; the template
+  now lives at `.github/pull_request_template.md`.)
 
 ## 8. In-Progress Work
 
@@ -294,8 +294,9 @@ artifacts (`latest.json`). Full steps in `release.md`.
 - The screenshot asset is still named `docs/screenshot_mascot.png`
   (copied filename from the mascot project); renaming it would need a
   binary file move via the web UI — cosmetic only.
-- `pull_request_template.md` lives at the repo ROOT, not under
-  `.github/` (owner's `277db27`); GitHub accepts both locations.
+- `pull_request_template.md` was added at the repo ROOT (owner's
+  `277db27`) and moved to `.github/` (`85cd45d` + `842cb4a`); GitHub
+  accepts both locations, `.github/` is the standard one.
 - Early git history carries Japanese commit messages from the
   project's origin; the app and docs are English.
 - No accessibility audit has been run (see `ACCESSIBILITY.md`).
@@ -329,6 +330,9 @@ artifacts (`latest.json`). Full steps in `release.md`.
 
 ## 16. Memory Maintenance Log
 
+- **2026-11-16:** PR template moved into `.github/`: added as
+  `.github/pull_request_template.md` (`85cd45d`, content byte-identical
+  to the root copy), root copy deleted (`842cb4a`).
 - **2026-11-16:** `README.md` + `docs/SPEC.md` cleaned up
   (`7a15922`): installer name corrected to the versioned
   `DesktopDashboards_0.1.0_x64-setup.exe`, portable-exe output path
