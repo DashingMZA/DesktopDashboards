@@ -1,17 +1,17 @@
 name: Release
 
-# Pushing a git tag that starts with "v" (for example v1.1.11) runs this
+# Pushing a git tag that starts with "v" (for example v0.1.0) runs this
 # workflow — it builds the Windows app and creates a GitHub Release
 # (draft) with the installer, the updater artifacts (latest.json) and
 # the portable ZIP attached.
 #
 # How to trigger it:
-#   git tag v1.1.11
-#   git push origin v1.1.11
+#   git tag v0.1.0
+#   git push origin v0.1.0
 #
 # Windows only: this app targets Windows (bundle targets: ["nsis"] in
-# src-tauri/tauri.conf.json), matching the upstream releases, which ship
-# a Windows installer and a portable ZIP only.
+# src-tauri/tauri.conf.json), so the workflow ships a Windows installer
+# and a portable ZIP only.
 
 on:
   push:
@@ -72,30 +72,27 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: "Desktop Mascot for Muse ${{ github.ref_name }}"
+          releaseName: "DesktopDashboards ${{ github.ref_name }}"
           releaseBody: |
             ## Distribution assets
 
-            - **Installer**: `Desktop-Mascot-for-Muse_x64-setup.exe`
-            - **Portable ZIP**: `desktop-mascot-for-muse-windows-x64.zip` (avatar videos `.mp4` are not included, for copyright reasons)
+            - **Installer**: `DesktopDashboards_<version>_x64-setup.exe` (NSIS, per-user install)
+            - **Portable ZIP**: `desktop-dashboards-x64.zip` (unzip and run `DesktopDashboards.exe`)
           releaseDraft: true
           prerelease: false
 
       # The portable ZIP is not produced by tauri-action, so it is built
-      # here with the same layout as the upstream releases: the built
-      # exe, the bundled avatar resources and the README. Avatar videos
-      # (.mp4) are intentionally NOT included.
+      # here: the built exe plus the README. This repo has no bundled
+      # asset files (no src-tauri/assets/), so nothing else goes in.
       - name: Build portable ZIP
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path portable/avatars/plugin | Out-Null
-          Copy-Item src-tauri/target/release/desktop-mascot-for-muse.exe portable/
-          Copy-Item src-tauri/assets/avatars/setting.json portable/avatars/
-          Copy-Item src-tauri/assets/avatars/plugin/quotes.json portable/avatars/plugin/
+          New-Item -ItemType Directory -Force -Path portable | Out-Null
+          Copy-Item src-tauri/target/release/desktop-dashboards.exe portable/
           Copy-Item README.md portable/
-          Compress-Archive -Path portable/* -DestinationPath desktop-mascot-for-muse-windows-x64.zip
+          Compress-Archive -Path portable/* -DestinationPath desktop-dashboards-x64.zip
 
       - name: Upload portable ZIP to the release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload ${{ github.ref_name }} desktop-mascot-for-muse-windows-x64.zip --clobber
+        run: gh release upload ${{ github.ref_name }} desktop-dashboards-x64.zip --clobber
