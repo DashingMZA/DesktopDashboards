@@ -1,5 +1,6 @@
 mod cli;
 mod config;
+mod dd_bridge;
 mod tray;
 mod widget;
 mod win32;
@@ -272,10 +273,75 @@ fn handle_cli_options(app: &AppHandle, opts: cli::CliOptions, is_secondary_insta
     }
 }
 
+fn strip_windows_verbatim_prefix(path: &std::path::Path) -> String {
+    let s = path.to_string_lossy();
+    s.strip_prefix(r"\\?\").unwrap_or(&s).to_string()
+}
+
+/// 開発時リポジトリ直下の `samples/` ディレクトリを返す。
+fn dev_samples_dir() -> Option<std::path::PathBuf> {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .map(|d| d.join("samples"))
+        .filter(|d| d.is_dir())
+}
+
+/// 同梱サンプル HTML フォルダを解決する（インストール版リソース → 実行ファイル隣 → 開発時リポジトリ直下）。
+pub(crate) fn resolve_samples_dir(app: &AppHandle) -> Option<std::path::PathBuf> {
+    let mut candidates = Vec::new();
+    if let Ok(resource_dir) = app.path().resource_dir() {
+        candidates.push(resource_dir.join("samples"));
+    }
+    if let Ok(exe_path) = std::env::current_exe() {
+        if let Some(exe_dir) = exe_path.parent() {
+            candidates.push(exe_dir.join("samples"));
+        }
+    }
+    if let Some(dev_dir) = dev_samples_dir() {
+        candidates.push(dev_dir);
+    }
+    candidates.into_iter().find(|p| p.is_dir())
+}
+
+/// 指定された `samples/` ディレクトリ内の `sticky-todo.html` から初期デフォルトガジェットを生成する。
+pub fn default_sample_widget_for_dir(
+    samples_dir: &std::path::Path,
+    x: i32,
+    y: i32,
+) -> Option<WidgetConfig> {
+    let sticky_path = samples_dir.join("sticky-todo.html");
+    if !sticky_path.is_file() {
+        return None;
+    }
+    Some(WidgetConfig {
+        title: "付箋メモ＆ToDo".to_string(),
+        source_type: SourceType::File,
+        source: strip_windows_verbatim_prefix(&sticky_path),
+        enabled: true,
+        x,
+        y,
+        width: 400,
+        height: 580,
+        ..Default::default()
+    })
+}
+
+/// 初回起動時（`config.json` 未作成時）にデフォルト登録するサンプルガジェットを構築する。
+pub fn build_default_sample_widget(app: &AppHandle) -> Option<WidgetConfig> {
+    let samples_dir = resolve_samples_dir(app)?;
+    let (x, y) = next_cascade_position(app, &[]);
+    default_sample_widget_for_dir(&samples_dir, x, y)
+}
+
 #[tauri::command]
 fn get_webview_data_dir(app: AppHandle) -> Result<String, String> {
     let dir = widget::resolve_webview_data_dir(&app)?;
     Ok(dir.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
+fn get_samples_dir(app: AppHandle) -> Result<Option<String>, String> {
+    Ok(resolve_samples_dir(&app).map(|p| strip_windows_verbatim_prefix(&p)))
 }
 
 #[tauri::command]
@@ -593,6 +659,43 @@ fn set_autostart(app: AppHandle, enabled: bool) -> Result<bool, String> {
     Ok(enabled)
 }
 
+/// Determine the discrepancy between the auto-launch configuration in `config.json` and the actual registration status in the OS startup settings.
+/// The return value is `(whether to re-register for automatic startup with the OS, whether to synchronize and save the setting as 'true' in config.json)`.
+pub fn plan_autostart_sync(config_autostart: bool, os_enabled: bool) -> (bool, bool) {
+    match (config_autostart, os_enabled) {
+        (true, false) => (true, false),
+        (false, true) => (false, true),
+        _ => (false, false),
+    }
+}
+
+/// At startup, the system verifies the automatic startup configuration and automatically restores it if the OS-level registration has been removed—for instance, due to an installer-based overwrite update.
+fn sync_autostart_on_startup(app: &AppHandle, state: &Arc<ConfigState>) {
+    let config_autostart = state
+        .config
+        .lock()
+        .map(|cfg| cfg.autostart)
+        .unwrap_or(false);
+    let autolaunch = app.autolaunch();
+    let os_enabled = autolaunch.is_enabled().unwrap_or(false);
+
+    let (should_enable_os, should_save_config_true) =
+        plan_autostart_sync(config_autostart, os_enabled);
+
+    if should_enable_os {
+        if let Err(e) = autolaunch.enable() {
+            eprintln!("[autostart] failed to restore OS autostart: {e}");
+        }
+    }
+
+    if should_save_config_true {
+        if let Ok(mut cfg) = state.config.lock() {
+            cfg.autostart = true;
+        }
+        let _ = state.save_now();
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let app = tauri::Builder::default()
@@ -618,7 +721,12 @@ pub fn run() {
                 ConfigState::load_or_init(app.handle())
                     .expect("failed to initialize ConfigState"),
             );
+            sync_autostart_on_startup(app.handle(), &config_state);
             app.manage(config_state);
+
+            if let Err(e) = dd_bridge::ensure_connections_template_for_app(app.handle()) {
+                eprintln!("[dd_bridge] failed to ensure connections.json template: {e}");
+            }
 
             if let Some(manager_win) = app.get_webview_window("manager") {
                 let win_clone = manager_win.clone();
@@ -647,6 +755,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_webview_data_dir,
+            get_samples_dir,
             list_widgets,
             add_widget,
             toggle_widget,
@@ -659,6 +768,9 @@ pub fn run() {
             reload_all_widgets,
             get_autostart,
             set_autostart,
+            dd_bridge::dd_storage_get,
+            dd_bridge::dd_storage_set,
+            dd_bridge::dd_connect_request,
         ])
         .build(tauri::generate_context!())
         .expect("error while building DesktopDashboards");
@@ -707,5 +819,46 @@ mod tests {
             next_non_overlapping_position(0, 0, 1920, 1080, 480, 760, &[first, second]);
         assert_eq!(overlap_area(x1, y1, 480, 760, x3, y3, 480, 760), 0);
         assert_eq!(overlap_area(x2, y2, 480, 760, x3, y3, 480, 760), 0);
+    }
+
+    #[test]
+    fn bundled_samples_exist_and_prefix_is_stripped() {
+        let samples_dir = dev_samples_dir().expect("samples directory should exist at repo root");
+        for name in [
+            "sticky-todo.html",
+            "pomodoro-timer.html",
+            "starter-template.html",
+        ] {
+            assert!(
+                samples_dir.join(name).is_file(),
+                "missing bundled sample file: {name}"
+            );
+        }
+
+        let verbatim = std::path::Path::new(r"\\?\C:\Program Files\DesktopDashboards\samples");
+        assert_eq!(
+            strip_windows_verbatim_prefix(verbatim),
+            r"C:\Program Files\DesktopDashboards\samples"
+        );
+    }
+
+    #[test]
+    fn test_plan_autostart_sync() {
+        assert_eq!(plan_autostart_sync(true, false), (true, false));
+        assert_eq!(plan_autostart_sync(false, true), (false, true));
+        assert_eq!(plan_autostart_sync(true, true), (false, false));
+        assert_eq!(plan_autostart_sync(false, false), (false, false));
+    }
+
+    #[test]
+    fn default_sample_widget_uses_sticky_todo() {
+        let samples_dir = dev_samples_dir().expect("samples directory should exist at repo root");
+        let w = default_sample_widget_for_dir(&samples_dir, 40, 40)
+            .expect("default sample widget should be created");
+        assert_eq!(w.title, "付箋メモ＆ToDo");
+        assert_eq!(w.source_type, SourceType::File);
+        assert!(w.source.ends_with("sticky-todo.html"));
+        assert!(w.enabled);
+        assert_eq!((w.width, w.height), (400, 580));
     }
 }
