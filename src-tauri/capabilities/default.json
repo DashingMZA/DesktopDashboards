@@ -9,6 +9,7 @@
     "dialog:default",
     "updater:default",
     "allow-get-webview-data-dir",
+    "allow-get-samples-dir",
     "allow-list-widgets",
     "allow-add-widget",
     "allow-toggle-widget",
