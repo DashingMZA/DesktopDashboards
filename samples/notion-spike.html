@@ -1,0 +1,1562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Notion API (2025-09-03) Phase 4a Spike - DesktopDashboards</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #12151b;
+      --panel: #1b2029;
+      --panel-sub: #141820;
+      --border: #2c3442;
+      --text: #eef2f6;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --green: #34d399;
+      --amber: #fbbf24;
+      --red: #f87171;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", "Yu Gothic UI", "Meiryo", sans-serif;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+    /* Reserve space in the top 28px so it does not overlap the hover control bar shown when unlocked */
+    body {
+      padding: 34px 16px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    h1 {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 600;
+    }
+    .tag {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 4px;
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      white-space: nowrap;
+    }
+    .tag.ok {
+      background: rgba(52, 211, 153, 0.15);
+      color: var(--green);
+      border-color: rgba(52, 211, 153, 0.35);
+    }
+    .tag.warn {
+      background: rgba(251, 191, 36, 0.15);
+      color: var(--amber);
+      border-color: rgba(251, 191, 36, 0.35);
+    }
+    .tag.err {
+      background: rgba(248, 113, 113, 0.15);
+      color: var(--red);
+      border-color: rgba(248, 113, 113, 0.35);
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .card h2 {
+      margin: 0;
+      font-size: 12px;
+      font-weight: 600;
+      color: #cbd5e1;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .stat {
+      background: var(--panel-sub);
+      border: 1px solid #242b38;
+      border-radius: 8px;
+      padding: 8px 10px;
+    }
+    .stat.full {
+      grid-column: 1 / -1;
+    }
+    .stat-label {
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .stat-val {
+      font-size: 13px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      word-break: break-all;
+    }
+    .stat-val.ok { color: var(--green); }
+    .stat-val.err { color: var(--red); }
+    .stat-val.warn { color: var(--amber); }
+    .stat-val.accent { color: var(--accent); }
+    code {
+      font-family: "Cascadia Code", Consolas, monospace;
+      font-size: 11px;
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: #0f1217;
+      border: 1px solid #2b3444;
+      color: #7dd3fc;
+      word-break: break-all;
+    }
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .field label {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .field-hint {
+      font-size: 11px;
+      color: var(--muted);
+    }
+    input[type="text"] {
+      width: 100%;
+      border: 1px solid #384252;
+      background: #0f1217;
+      color: #f8fafc;
+      border-radius: 6px;
+      padding: 7px 10px;
+      font-family: inherit;
+      font-size: 12px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    input[type="text"]:focus {
+      border-color: var(--accent);
+    }
+    .btn-group {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .actions-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .actions-grid .full {
+      grid-column: 1 / -1;
+    }
+    @media (max-width: 480px) {
+      .actions-grid,
+      .status-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    button {
+      border: none;
+      border-radius: 6px;
+      padding: 7px 11px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s, background-color 0.15s;
+      text-align: center;
+    }
+    button:hover:not(:disabled) {
+      opacity: 0.92;
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    button.primary {
+      background: var(--primary);
+      color: #fff;
+    }
+    button.primary:hover:not(:disabled) {
+      background: var(--primary-hover);
+    }
+    button.secondary {
+      background: #334155;
+      color: #e2e8f0;
+    }
+    button.danger {
+      background: rgba(248, 113, 113, 0.18);
+      color: #fecaca;
+      border: 1px solid rgba(248, 113, 113, 0.4);
+    }
+    .cache-box {
+      background: var(--panel-sub);
+      border: 1px solid #242b38;
+      border-radius: 8px;
+      padding: 8px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .cache-info {
+      min-width: 0;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .banner {
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 12px;
+      border: 1px solid var(--border);
+      background: var(--panel-sub);
+      word-break: break-word;
+    }
+    .banner.ok {
+      border-color: rgba(52, 211, 153, 0.4);
+      background: rgba(52, 211, 153, 0.08);
+      color: #a7f3d0;
+    }
+    .banner.err {
+      border-color: rgba(248, 113, 113, 0.45);
+      background: rgba(248, 113, 113, 0.09);
+      color: #fecaca;
+    }
+    .banner.info {
+      border-color: rgba(56, 189, 248, 0.35);
+      background: rgba(56, 189, 248, 0.08);
+      color: #bae6fd;
+    }
+    .schema-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .schema-chip {
+      font-size: 11px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: #0f1217;
+      border: 1px solid #2c3442;
+      color: #cbd5e1;
+    }
+    .schema-chip strong {
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .page-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 280px;
+      overflow-y: auto;
+    }
+    .page-item {
+      background: var(--panel-sub);
+      border: 1px solid #242b38;
+      border-radius: 8px;
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .page-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .page-title {
+      font-weight: 600;
+      color: var(--text);
+      word-break: break-word;
+    }
+    .page-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .meta-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: #0f1217;
+      border: 1px solid #263040;
+    }
+    .meta-pill.checked {
+      color: var(--green);
+      border-color: rgba(52, 211, 153, 0.35);
+    }
+    .log-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      max-height: 120px;
+      overflow-y: auto;
+      font-family: "Cascadia Code", Consolas, monospace;
+      font-size: 11px;
+      color: #cbd5e1;
+    }
+    .log-item {
+      padding: 3px 6px;
+      border-radius: 4px;
+      background: #0f1217;
+      border: 1px solid #222936;
+      word-break: break-all;
+    }
+    details {
+      border: 1px solid #242b38;
+      border-radius: 8px;
+      background: #0f1217;
+      padding: 6px 10px;
+    }
+    summary {
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      color: #cbd5e1;
+      user-select: none;
+    }
+    pre.json-preview {
+      margin: 8px 0 2px;
+      padding: 8px;
+      border-radius: 6px;
+      background: #0b0e13;
+      border: 1px solid #1f2633;
+      color: #cbd5e1;
+      font-family: "Cascadia Code", Consolas, monospace;
+      font-size: 11px;
+      line-height: 1.45;
+      max-height: 260px;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    a {
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    .empty-note {
+      font-size: 12px;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Notion API (2025-09-03) Spike Verification</h1>
+    <span class="tag" id="header-badge">PHASE 4a SPIKE</span>
+  </header>
+
+  <section class="card">
+    <h2>Environment Status</h2>
+    <div class="status-grid">
+      <div class="stat">
+        <div class="stat-label">window.DD Bridge</div>
+        <div class="stat-val" id="dd-status">Checking...</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Local Today (YYYY-MM-DD)</div>
+        <div class="stat-val accent" id="local-today">----/--/--</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>Widget Settings (isolated storage via DD.storage)</h2>
+      <span class="tag" id="settings-badge">Unsaved</span>
+    </div>
+
+    <div class="field">
+      <label for="input-db-id">Database ID (Notion DB URL, or ID with/without hyphens)</label>
+      <input
+        type="text"
+        id="input-db-id"
+        placeholder="e.g. https://www.notion.so/... or 32-digit ID / UUID"
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <div class="field-hint">
+        Storage key: <code>notion:database_id</code> / Normalized ID: <code id="normalized-db-id">(empty)</code>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="input-date-prop">Date property name (leave blank to query without a filter)</label>
+      <input
+        type="text"
+        id="input-date-prop"
+        value="Date"
+        placeholder="Blank = no filter (e.g. Date / Due)"
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <div class="field-hint">Storage key: <code>notion:date_property</code></div>
+    </div>
+
+    <div class="btn-group">
+      <button type="button" class="primary" id="btn-save-settings">Save Settings (DD.storage.set)</button>
+      <button type="button" class="secondary" id="btn-reload-settings">Reload (DD.storage.get)</button>
+    </div>
+
+    <div class="cache-box">
+      <div class="cache-info">
+        <div class="stat-label">Cached <code>data_source_id</code></div>
+        <div class="field-hint">Key: <code id="cache-key-display">notion:data_source_id:&lt;database_id&gt;</code></div>
+        <div class="stat-val" id="cache-val-display">Not checked</div>
+      </div>
+      <button type="button" class="danger" id="btn-clear-cache">Clear Cache</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>Notion API (2025-09-03) Verification Actions</h2>
+      <span class="tag" id="busy-badge" hidden>Running...</span>
+    </div>
+    <div class="actions-grid">
+      <button type="button" class="secondary" id="btn-test-me">① Connection test (GET /v1/users/me)</button>
+      <button type="button" class="primary" id="btn-query-today">② Fetch today's tasks (resolve data_source_id + today filter)</button>
+      <button type="button" class="secondary" id="btn-query-all">③ Query all (no filter, max 10)</button>
+      <button type="button" class="danger" id="btn-neg-patch">④ Negative test: disallowed endpoint (PATCH /v1/pages/test)</button>
+      <button type="button" class="danger full" id="btn-neg-iframe">⑤ Negative test: iframe isolation check (no window.DD injected &amp; invoke rejected)</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>Execution Status / Results</h2>
+      <span class="tag" id="result-badge">Idle</span>
+    </div>
+
+    <div class="banner info" id="result-message">
+      Run a verification action using the buttons above. Set the token in <code>%APPDATA%\DesktopDashboards\connections.json</code>.
+    </div>
+
+    <div class="status-grid">
+      <div class="stat">
+        <div class="stat-label">Cache status (data_source_id)</div>
+        <div class="stat-val" id="res-cache-status">-</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">HTTP status</div>
+        <div class="stat-val" id="res-http-status">-</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Local date (YYYY-MM-DD)</div>
+        <div class="stat-val" id="res-local-date">-</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Re-resolve retry (404 / object_not_found)</div>
+        <div class="stat-val" id="res-retried">-</div>
+      </div>
+      <div class="stat full">
+        <div class="stat-label">Resolved data_source_id</div>
+        <div class="stat-val" id="res-data-source-id">-</div>
+      </div>
+    </div>
+
+    <div id="user-info-wrap" hidden>
+      <div class="stat-label" style="margin-bottom: 4px;">Bot user info</div>
+      <div class="page-item" id="user-info-card"></div>
+    </div>
+
+    <div id="schema-wrap" hidden>
+      <div class="stat-label" style="margin-bottom: 4px;">Detected DB property schema</div>
+      <div class="schema-list" id="schema-list"></div>
+    </div>
+
+    <div id="pages-wrap" hidden>
+      <div class="card-head" style="margin-bottom: 4px;">
+        <div class="stat-label">Fetched pages</div>
+        <span class="stat-label" id="pages-count">0 items</span>
+      </div>
+      <ul class="page-list" id="page-list"></ul>
+    </div>
+
+    <div>
+      <div class="stat-label" style="margin-bottom: 4px;">Execution log</div>
+      <ul class="log-list" id="log-list"></ul>
+    </div>
+
+    <details id="json-details">
+      <summary>Response JSON preview (token not included)</summary>
+      <pre class="json-preview" id="json-preview">(No response yet)</pre>
+    </details>
+  </section>
+
+  <script>
+    (() => {
+      const KEY_DATABASE_ID = "notion:database_id";
+      const KEY_DATE_PROPERTY = "notion:date_property";
+      const CACHE_KEY_PREFIX = "notion:data_source_id:";
+      const DEFAULT_DATE_PROPERTY = "Date";
+
+      const ddStatusEl = document.getElementById("dd-status");
+      const localTodayEl = document.getElementById("local-today");
+      const headerBadgeEl = document.getElementById("header-badge");
+      const settingsBadgeEl = document.getElementById("settings-badge");
+      const dbIdInput = document.getElementById("input-db-id");
+      const datePropInput = document.getElementById("input-date-prop");
+      const normalizedDbIdEl = document.getElementById("normalized-db-id");
+      const cacheKeyDisplayEl = document.getElementById("cache-key-display");
+      const cacheValDisplayEl = document.getElementById("cache-val-display");
+
+      const saveBtn = document.getElementById("btn-save-settings");
+      const reloadBtn = document.getElementById("btn-reload-settings");
+      const clearCacheBtn = document.getElementById("btn-clear-cache");
+
+      const busyBadgeEl = document.getElementById("busy-badge");
+      const testMeBtn = document.getElementById("btn-test-me");
+      const queryTodayBtn = document.getElementById("btn-query-today");
+      const queryAllBtn = document.getElementById("btn-query-all");
+      const negPatchBtn = document.getElementById("btn-neg-patch");
+      const negIframeBtn = document.getElementById("btn-neg-iframe");
+
+      const resultBadgeEl = document.getElementById("result-badge");
+      const resultMessageEl = document.getElementById("result-message");
+      const resCacheStatusEl = document.getElementById("res-cache-status");
+      const resHttpStatusEl = document.getElementById("res-http-status");
+      const resLocalDateEl = document.getElementById("res-local-date");
+      const resRetriedEl = document.getElementById("res-retried");
+      const resDataSourceIdEl = document.getElementById("res-data-source-id");
+
+      const userInfoWrapEl = document.getElementById("user-info-wrap");
+      const userInfoCardEl = document.getElementById("user-info-card");
+      const schemaWrapEl = document.getElementById("schema-wrap");
+      const schemaListEl = document.getElementById("schema-list");
+      const pagesWrapEl = document.getElementById("pages-wrap");
+      const pagesCountEl = document.getElementById("pages-count");
+      const pageListEl = document.getElementById("page-list");
+      const logListEl = document.getElementById("log-list");
+      const jsonDetailsEl = document.getElementById("json-details");
+      const jsonPreviewEl = document.getElementById("json-preview");
+
+      const actionButtons = [
+        saveBtn,
+        reloadBtn,
+        clearCacheBtn,
+        testMeBtn,
+        queryTodayBtn,
+        queryAllBtn,
+        negPatchBtn,
+        negIframeBtn,
+      ];
+
+      /**
+       * Build today's date as YYYY-MM-DD in the local time zone
+       */
+      function getLocalTodayYmd() {
+        const now = new Date();
+        const yyyy = String(now.getFullYear());
+        const mm = String(now.getMonth() + 1).padStart(2, "0");
+        const dd = String(now.getDate()).padStart(2, "0");
+        return `${yyyy}-${mm}-${dd}`;
+      }
+
+      function getLocalTimeHms() {
+        const now = new Date();
+        const hh = String(now.getHours()).padStart(2, "0");
+        const mm = String(now.getMinutes()).padStart(2, "0");
+        const ss = String(now.getSeconds()).padStart(2, "0");
+        return `${hh}:${mm}:${ss}`;
+      }
+
+      /**
+       * Extract the Database ID from a Notion DB URL or an ID with/without hyphens, and trim whitespace
+       */
+      function normalizeDatabaseId(raw) {
+        const trimmed = String(raw || "").trim();
+        if (!trimmed) return "";
+
+        if (/^https?:\/\//i.test(trimmed) || /[/?#]/.test(trimmed)) {
+          const pathPart = trimmed.split(/[?#]/)[0].replace(/\/+$/, "");
+          const uuidMatches = pathPart.match(
+            /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi
+          );
+          if (uuidMatches && uuidMatches.length > 0) {
+            return uuidMatches[uuidMatches.length - 1];
+          }
+          const hex32Matches = pathPart.match(/[0-9a-f]{32}/gi);
+          if (hex32Matches && hex32Matches.length > 0) {
+            return hex32Matches[hex32Matches.length - 1];
+          }
+        }
+
+        return trimmed;
+      }
+
+      function hasBridge() {
+        return (
+          typeof window.DD !== "undefined" &&
+          window.DD !== null &&
+          typeof window.DD.storage?.get === "function" &&
+          typeof window.DD.storage?.set === "function" &&
+          typeof window.DD.connect?.request === "function"
+        );
+      }
+
+      function formatError(err) {
+        if (typeof err === "string") return err;
+        if (err && typeof err.message === "string") return err.message;
+        try {
+          return JSON.stringify(err);
+        } catch (_) {
+          return String(err);
+        }
+      }
+
+      function appendLog(text) {
+        const li = document.createElement("li");
+        li.className = "log-item";
+        li.textContent = `[${getLocalTimeHms()}] ${text}`;
+        logListEl.prepend(li);
+        while (logListEl.children.length > 25) {
+          logListEl.removeChild(logListEl.lastChild);
+        }
+      }
+
+      function setBusy(isBusy) {
+        busyBadgeEl.hidden = !isBusy;
+        for (const btn of actionButtons) {
+          btn.disabled = isBusy;
+        }
+      }
+
+      function setBadge(el, text, tone) {
+        el.textContent = text;
+        el.className = tone ? `tag ${tone}` : "tag";
+      }
+
+      function setMessageBanner(text, tone) {
+        resultMessageEl.textContent = text;
+        resultMessageEl.className = `banner ${tone || "info"}`;
+      }
+
+      function updateEnvironmentStatus() {
+        const today = getLocalTodayYmd();
+        localTodayEl.textContent = today;
+
+        if (hasBridge()) {
+          ddStatusEl.textContent = "Available (window.DD injected)";
+          ddStatusEl.className = "stat-val ok";
+          setBadge(headerBadgeEl, "DD BRIDGE READY", "ok");
+        } else {
+          ddStatusEl.textContent = "Unavailable (window.DD not injected)";
+          ddStatusEl.className = "stat-val err";
+          setBadge(headerBadgeEl, "NO DD BRIDGE", "err");
+        }
+      }
+
+      function getCacheKey(dbId) {
+        return CACHE_KEY_PREFIX + dbId;
+      }
+
+      function updateDbIdPreview() {
+        const dbId = normalizeDatabaseId(dbIdInput.value);
+        normalizedDbIdEl.textContent = dbId || "(empty)";
+        cacheKeyDisplayEl.textContent = dbId
+          ? getCacheKey(dbId)
+          : `${CACHE_KEY_PREFIX}<database_id>`;
+        return dbId;
+      }
+
+      async function refreshCachedDataSourceDisplay() {
+        const dbId = updateDbIdPreview();
+        if (!dbId) {
+          cacheValDisplayEl.textContent = "Database ID not entered";
+          cacheValDisplayEl.className = "stat-val warn";
+          return null;
+        }
+        if (!hasBridge()) {
+          cacheValDisplayEl.textContent = "Cannot read: DD bridge not injected";
+          cacheValDisplayEl.className = "stat-val err";
+          return null;
+        }
+        try {
+          const cached = await window.DD.storage.get(getCacheKey(dbId));
+          if (typeof cached === "string" && cached.trim() !== "") {
+            cacheValDisplayEl.textContent = cached;
+            cacheValDisplayEl.className = "stat-val ok";
+            return cached;
+          }
+          cacheValDisplayEl.textContent = "Not cached (null)";
+          cacheValDisplayEl.className = "stat-val";
+          return null;
+        } catch (err) {
+          cacheValDisplayEl.textContent = `Load error: ${formatError(err)}`;
+          cacheValDisplayEl.className = "stat-val err";
+          return null;
+        }
+      }
+
+      function clearRenderedDetails() {
+        userInfoWrapEl.hidden = true;
+        userInfoCardEl.textContent = "";
+        schemaWrapEl.hidden = true;
+        schemaListEl.textContent = "";
+        pagesWrapEl.hidden = true;
+        pageListEl.textContent = "";
+        pagesCountEl.textContent = "0 items";
+      }
+
+      function updateExecutionMetrics({
+        cacheStatus = "-",
+        httpStatus = "-",
+        httpTone = "",
+        localDate = "-",
+        retried = "-",
+        dataSourceId = "-",
+      }) {
+        resCacheStatusEl.textContent = cacheStatus;
+        resCacheStatusEl.className =
+          cacheStatus === "HIT"
+            ? "stat-val ok"
+            : cacheStatus === "MISS"
+              ? "stat-val warn"
+              : "stat-val";
+
+        resHttpStatusEl.textContent = String(httpStatus);
+        resHttpStatusEl.className = httpTone ? `stat-val ${httpTone}` : "stat-val";
+
+        resLocalDateEl.textContent = localDate;
+        resRetriedEl.textContent = retried;
+        resDataSourceIdEl.textContent = dataSourceId || "-";
+      }
+
+      function renderJsonPreview(payload) {
+        if (payload === undefined) {
+          jsonPreviewEl.textContent = "(none)";
+          return;
+        }
+        try {
+          jsonPreviewEl.textContent = JSON.stringify(payload, null, 2);
+        } catch (_) {
+          jsonPreviewEl.textContent = String(payload);
+        }
+      }
+
+      function renderUserInfo(data) {
+        userInfoWrapEl.hidden = false;
+        userInfoCardEl.textContent = "";
+
+        const topRow = document.createElement("div");
+        topRow.className = "page-title-row";
+        const nameEl = document.createElement("span");
+        nameEl.className = "page-title";
+        nameEl.textContent = data?.name || "(no name)";
+        const typeEl = document.createElement("span");
+        typeEl.className = "tag ok";
+        typeEl.textContent = data?.type || "unknown";
+        topRow.append(nameEl, typeEl);
+
+        const metaRow = document.createElement("div");
+        metaRow.className = "page-meta";
+
+        const idPill = document.createElement("span");
+        idPill.className = "meta-pill";
+        idPill.textContent = `ID: ${data?.id || "-"}`;
+        metaRow.appendChild(idPill);
+
+        const wsName = data?.bot?.workspace_name;
+        if (wsName) {
+          const wsPill = document.createElement("span");
+          wsPill.className = "meta-pill";
+          wsPill.textContent = `Workspace: ${wsName}`;
+          metaRow.appendChild(wsPill);
+        }
+
+        const ownerType = data?.bot?.owner?.type;
+        if (ownerType) {
+          const ownerPill = document.createElement("span");
+          ownerPill.className = "meta-pill";
+          ownerPill.textContent = `Owner: ${ownerType}`;
+          metaRow.appendChild(ownerPill);
+        }
+
+        userInfoCardEl.append(topRow, metaRow);
+      }
+
+      function extractPageSummary(page) {
+        const props = page && typeof page.properties === "object" && page.properties !== null
+          ? page.properties
+          : {};
+
+        let title = "";
+        const dates = [];
+        const checkboxes = [];
+        const extras = [];
+
+        for (const [propName, propVal] of Object.entries(props)) {
+          if (!propVal || typeof propVal !== "object") continue;
+
+          if (propVal.type === "title") {
+            const fragments = Array.isArray(propVal.title) ? propVal.title : [];
+            const text = fragments.map((t) => t?.plain_text || "").join("");
+            if (!title) {
+              title = text;
+            }
+          } else if (propVal.type === "date") {
+            if (propVal.date && propVal.date.start) {
+              const rangeText = propVal.date.end
+                ? `${propVal.date.start} → ${propVal.date.end}`
+                : propVal.date.start;
+              dates.push({ name: propName, value: rangeText });
+            } else {
+              dates.push({ name: propName, value: "(not set)" });
+            }
+          } else if (propVal.type === "checkbox") {
+            checkboxes.push({ name: propName, checked: Boolean(propVal.checkbox) });
+          } else if (propVal.type === "status" && propVal.status?.name) {
+            extras.push({ name: propName, value: propVal.status.name });
+          } else if (propVal.type === "select" && propVal.select?.name) {
+            extras.push({ name: propName, value: propVal.select.name });
+          }
+        }
+
+        return {
+          title: title || "(untitled)",
+          dates,
+          checkboxes,
+          extras,
+          url: typeof page?.url === "string" && /^https:\/\//i.test(page.url) ? page.url : null,
+        };
+      }
+
+      function renderQueryResults(data) {
+        const results = Array.isArray(data?.results) ? data.results : [];
+
+        // Scan the property schema (list of names and types)
+        const schemaMap = new Map();
+        for (const page of results) {
+          const props = page?.properties;
+          if (!props || typeof props !== "object") continue;
+          for (const [propName, propVal] of Object.entries(props)) {
+            if (propVal && typeof propVal.type === "string" && !schemaMap.has(propName)) {
+              schemaMap.set(propName, propVal.type);
+            }
+          }
+        }
+
+        schemaListEl.textContent = "";
+        if (schemaMap.size > 0) {
+          schemaWrapEl.hidden = false;
+          for (const [propName, propType] of schemaMap.entries()) {
+            const chip = document.createElement("span");
+            chip.className = "schema-chip";
+            const strong = document.createElement("strong");
+            strong.textContent = propName;
+            const typeText = document.createTextNode(` (${propType})`);
+            chip.append(strong, typeText);
+            schemaListEl.appendChild(chip);
+          }
+        } else {
+          schemaWrapEl.hidden = true;
+        }
+
+        // Page list
+        pagesWrapEl.hidden = false;
+        pagesCountEl.textContent = `${results.length} items`;
+        pageListEl.textContent = "";
+
+        if (results.length === 0) {
+          const emptyLi = document.createElement("li");
+          emptyLi.className = "empty-note";
+          emptyLi.textContent = "No matching pages (0 items).";
+          pageListEl.appendChild(emptyLi);
+          return;
+        }
+
+        for (const page of results) {
+          const summary = extractPageSummary(page);
+          const li = document.createElement("li");
+          li.className = "page-item";
+
+          const titleRow = document.createElement("div");
+          titleRow.className = "page-title-row";
+          const titleEl = document.createElement("span");
+          titleEl.className = "page-title";
+          titleEl.textContent = summary.title;
+          titleRow.appendChild(titleEl);
+
+          if (summary.url) {
+            const link = document.createElement("a");
+            link.href = summary.url;
+            link.target = "_blank";
+            link.rel = "noopener noreferrer";
+            link.textContent = "Open in Notion ↗";
+            titleRow.appendChild(link);
+          }
+          li.appendChild(titleRow);
+
+          const metaRow = document.createElement("div");
+          metaRow.className = "page-meta";
+
+          for (const cb of summary.checkboxes) {
+            const pill = document.createElement("span");
+            pill.className = cb.checked ? "meta-pill checked" : "meta-pill";
+            pill.textContent = `${cb.checked ? "☑" : "☐"} ${cb.name}`;
+            metaRow.appendChild(pill);
+          }
+
+          for (const dt of summary.dates) {
+            const pill = document.createElement("span");
+            pill.className = "meta-pill";
+            pill.textContent = `📅 ${dt.name}: ${dt.value}`;
+            metaRow.appendChild(pill);
+          }
+
+          for (const ex of summary.extras) {
+            const pill = document.createElement("span");
+            pill.className = "meta-pill";
+            pill.textContent = `${ex.name}: ${ex.value}`;
+            metaRow.appendChild(pill);
+          }
+
+          if (metaRow.children.length > 0) {
+            li.appendChild(metaRow);
+          }
+          pageListEl.appendChild(li);
+        }
+      }
+
+      function requireBridgeOrNotify() {
+        updateEnvironmentStatus();
+        if (hasBridge()) return true;
+        clearRenderedDetails();
+        setBadge(resultBadgeEl, "DD not injected", "err");
+        setMessageBanner(
+          "window.DD is not available. Load and run this as a local HTML widget (SourceType::File).",
+          "err"
+        );
+        updateExecutionMetrics({});
+        appendLog("Aborted: window.DD is undefined");
+        return false;
+      }
+
+      async function loadSettings() {
+        if (!hasBridge()) {
+          updateDbIdPreview();
+          await refreshCachedDataSourceDisplay();
+          return;
+        }
+        try {
+          const savedDbId = await window.DD.storage.get(KEY_DATABASE_ID);
+          const savedDateProp = await window.DD.storage.get(KEY_DATE_PROPERTY);
+
+          if (typeof savedDbId === "string" && savedDbId.trim() !== "") {
+            dbIdInput.value = normalizeDatabaseId(savedDbId);
+          } else {
+            dbIdInput.value = "";
+          }
+
+          if (savedDateProp !== null && savedDateProp !== undefined) {
+            datePropInput.value = String(savedDateProp);
+          } else {
+            datePropInput.value = DEFAULT_DATE_PROPERTY;
+          }
+
+          setBadge(settingsBadgeEl, "Loaded", "ok");
+          await refreshCachedDataSourceDisplay();
+          appendLog("Restored settings from DD.storage");
+        } catch (err) {
+          setBadge(settingsBadgeEl, "Load failed", "err");
+          appendLog(`Settings restore error: ${formatError(err)}`);
+        }
+      }
+
+      async function saveSettings() {
+        if (!requireBridgeOrNotify()) return;
+        const dbId = normalizeDatabaseId(dbIdInput.value);
+        const dateProp = datePropInput.value.trim();
+
+        dbIdInput.value = dbId;
+        datePropInput.value = dateProp;
+
+        setBusy(true);
+        try {
+          await window.DD.storage.set(KEY_DATABASE_ID, dbId || null);
+          await window.DD.storage.set(KEY_DATE_PROPERTY, dateProp);
+          setBadge(settingsBadgeEl, "Saved", "ok");
+          await refreshCachedDataSourceDisplay();
+          setBadge(resultBadgeEl, "Settings saved", "ok");
+          setMessageBanner(
+            `Saved to DD.storage (${KEY_DATABASE_ID}=${dbId || "null"}, ${KEY_DATE_PROPERTY}="${dateProp}")`,
+            "ok"
+          );
+          appendLog(`Settings saved: dbId=${dbId || "(empty)"}, dateProp="${dateProp}"`);
+        } catch (err) {
+          setBadge(settingsBadgeEl, "Save error", "err");
+          setBadge(resultBadgeEl, "Error", "err");
+          setMessageBanner(`Failed to save settings: ${formatError(err)}`, "err");
+          appendLog(`Settings save error: ${formatError(err)}`);
+        } finally {
+          setBusy(false);
+        }
+      }
+
+      async function clearDataSourceCache() {
+        if (!requireBridgeOrNotify()) return;
+        const dbId = updateDbIdPreview();
+        if (!dbId) {
+          setBadge(resultBadgeEl, "Missing input", "warn");
+          setMessageBanner("Enter a Database ID to clear the cache.", "err");
+          return;
+        }
+        const cacheKey = getCacheKey(dbId);
+        setBusy(true);
+        try {
+          await window.DD.storage.set(cacheKey, null);
+          await refreshCachedDataSourceDisplay();
+          setBadge(resultBadgeEl, "Cache cleared", "ok");
+          setMessageBanner(`Cache deleted: ${cacheKey}`, "ok");
+          appendLog(`Cache cleared: ${cacheKey} = null`);
+        } catch (err) {
+          setBadge(resultBadgeEl, "Error", "err");
+          setMessageBanner(`Failed to clear cache: ${formatError(err)}`, "err");
+          appendLog(`Cache clear error: ${formatError(err)}`);
+        } finally {
+          setBusy(false);
+        }
+      }
+
+      async function fetchDatabaseAndExtractDataSourceId(dbId) {
+        const res = await window.DD.connect.request({
+          connection: "notion",
+          method: "GET",
+          path: `/v1/databases/${encodeURIComponent(dbId)}`,
+        });
+        const dsId = res?.data?.data_sources?.[0]?.id;
+        return { res, dataSourceId: typeof dsId === "string" && dsId.trim() !== "" ? dsId : null };
+      }
+
+      /**
+       * Resolve data_source_id + run query (re-resolve and retry once, only on 404 or object_not_found)
+       */
+      async function queryDatabaseWithResolution({ dbId, queryBody, localDateLabel }) {
+        const cacheKey = getCacheKey(dbId);
+        let dataSourceId = await window.DD.storage.get(cacheKey);
+        let cacheStatus = "HIT";
+        let retried = false;
+
+        if (typeof dataSourceId !== "string" || dataSourceId.trim() === "") {
+          cacheStatus = "MISS";
+          appendLog(`data_source_id cache MISS -> GET /v1/databases/${dbId}`);
+          const resolved = await fetchDatabaseAndExtractDataSourceId(dbId);
+          if (!resolved.res.ok || !resolved.dataSourceId) {
+            return {
+              ok: false,
+              stage: "resolve_database",
+              cacheStatus,
+              retried,
+              localDate: localDateLabel,
+              dataSourceId: resolved.dataSourceId,
+              res: resolved.res,
+            };
+          }
+          dataSourceId = resolved.dataSourceId;
+          await window.DD.storage.set(cacheKey, dataSourceId);
+          await refreshCachedDataSourceDisplay();
+          appendLog(`data_source_id resolved and saved: ${dataSourceId}`);
+        } else {
+          appendLog(`data_source_id cache HIT: ${dataSourceId}`);
+        }
+
+        let queryRes = await window.DD.connect.request({
+          connection: "notion",
+          method: "POST",
+          path: `/v1/data_sources/${encodeURIComponent(dataSourceId)}/query`,
+          body: queryBody,
+        });
+
+        const shouldRetry =
+          queryRes.status === 404 || queryRes.data?.code === "object_not_found";
+
+        if (shouldRetry) {
+          retried = true;
+          appendLog(
+            `Query response (${queryRes.status} / ${queryRes.data?.code || "-"}) -> re-resolving data_source_id and retrying once`
+          );
+          const refreshed = await fetchDatabaseAndExtractDataSourceId(dbId);
+          if (!refreshed.res.ok || !refreshed.dataSourceId) {
+            return {
+              ok: false,
+              stage: "re_resolve_database",
+              cacheStatus,
+              retried,
+              localDate: localDateLabel,
+              dataSourceId: refreshed.dataSourceId,
+              res: refreshed.res,
+            };
+          }
+          dataSourceId = refreshed.dataSourceId;
+          await window.DD.storage.set(cacheKey, dataSourceId);
+          await refreshCachedDataSourceDisplay();
+          appendLog(`data_source_id updated: ${dataSourceId}`);
+
+          queryRes = await window.DD.connect.request({
+            connection: "notion",
+            method: "POST",
+            path: `/v1/data_sources/${encodeURIComponent(dataSourceId)}/query`,
+            body: queryBody,
+          });
+        }
+
+        return {
+          ok: Boolean(queryRes.ok),
+          stage: "query",
+          cacheStatus,
+          retried,
+          localDate: localDateLabel,
+          dataSourceId,
+          res: queryRes,
+        };
+      }
+
+      async function runConnectionTest() {
+        if (!requireBridgeOrNotify()) return;
+        clearRenderedDetails();
+        setBusy(true);
+        appendLog("Run: ① Connection test GET /v1/users/me");
+        try {
+          const res = await window.DD.connect.request({
+            connection: "notion",
+            method: "GET",
+            path: "/v1/users/me",
+          });
+          renderJsonPreview(res.data);
+          updateExecutionMetrics({
+            cacheStatus: "N/A",
+            httpStatus: res.status,
+            httpTone: res.ok ? "ok" : "err",
+            localDate: getLocalTodayYmd(),
+            retried: "None",
+            dataSourceId: "-",
+          });
+
+          if (res.ok) {
+            renderUserInfo(res.data);
+            setBadge(resultBadgeEl, `HTTP ${res.status} OK`, "ok");
+            setMessageBanner(
+              `Connection succeeded: Bot "${res.data?.name || "Unknown"}" (id: ${res.data?.id || "-"})`,
+              "ok"
+            );
+            appendLog(`Connection test succeeded: HTTP ${res.status} (${res.data?.name || "-"})`);
+          } else {
+            setBadge(resultBadgeEl, `HTTP ${res.status} ERROR`, "err");
+            setMessageBanner(
+              `Notion API error (HTTP ${res.status}): ${res.data?.message || res.data?.code || "Check the JSON for details"}`,
+              "err"
+            );
+            appendLog(`Connection test failed: HTTP ${res.status} (${res.data?.code || "-"})`);
+          }
+        } catch (err) {
+          const msg = formatError(err);
+          setBadge(resultBadgeEl, "REJECTED", "err");
+          setMessageBanner(`Request was rejected/failed: ${msg}`, "err");
+          updateExecutionMetrics({
+            cacheStatus: "N/A",
+            httpStatus: "REJECTED",
+            httpTone: "err",
+            localDate: getLocalTodayYmd(),
+            retried: "None",
+            dataSourceId: "-",
+          });
+          renderJsonPreview({ rejected: true, error: msg });
+          appendLog(`Connection test error: ${msg}`);
+        } finally {
+          setBusy(false);
+        }
+      }
+
+      async function runQueryAction(mode) {
+        if (!requireBridgeOrNotify()) return;
+        const dbId = updateDbIdPreview();
+        if (!dbId) {
+          clearRenderedDetails();
+          setBadge(resultBadgeEl, "Missing input", "warn");
+          setMessageBanner("Please enter a Database ID.", "err");
+          return;
+        }
+
+        const dateProp = datePropInput.value.trim();
+        const todayLocal = getLocalTodayYmd();
+        let queryBody;
+        let actionLabel;
+
+        if (mode === "today") {
+          if (dateProp !== "") {
+            queryBody = {
+              filter: {
+                property: dateProp,
+                date: { equals: todayLocal },
+              },
+            };
+            actionLabel = `② Fetch today's tasks (${dateProp} = ${todayLocal})`;
+          } else {
+            queryBody = { page_size: 20 };
+            actionLabel = "② Fetch today's tasks (date property blank, so no filter, page_size=20)";
+          }
+        } else {
+          queryBody = { page_size: 10 };
+          actionLabel = "③ Query all (no filter, page_size=10)";
+        }
+
+        clearRenderedDetails();
+        setBusy(true);
+        appendLog(`Run: ${actionLabel}`);
+
+        try {
+          const outcome = await queryDatabaseWithResolution({
+            dbId,
+            queryBody,
+            localDateLabel: todayLocal,
+          });
+          const res = outcome.res;
+
+          renderJsonPreview(res.data);
+          updateExecutionMetrics({
+            cacheStatus: outcome.cacheStatus,
+            httpStatus: res.status,
+            httpTone: outcome.ok ? "ok" : "err",
+            localDate: outcome.localDate,
+            retried: outcome.retried ? "Yes (retried once)" : "None",
+            dataSourceId: outcome.dataSourceId || "(unresolved)",
+          });
+
+          if (outcome.ok) {
+            renderQueryResults(res.data);
+            const count = Array.isArray(res.data?.results) ? res.data.results.length : 0;
+            setBadge(resultBadgeEl, `HTTP ${res.status} (${count} items)`, "ok");
+            setMessageBanner(
+              `${actionLabel} completed: ${count} items fetched (cache=${outcome.cacheStatus}, retry=${outcome.retried ? "yes" : "no"})`,
+              "ok"
+            );
+            appendLog(`Query succeeded: HTTP ${res.status}, ${count} items`);
+          } else {
+            const errCode = res.data?.code || "-";
+            const errMsg = res.data?.message || "Check the JSON preview for details";
+            const stageHint =
+              outcome.stage === "resolve_database" || outcome.stage === "re_resolve_database"
+                ? outcome.dataSourceId === null && res.ok
+                  ? "The response to GET /v1/databases/{id} does not contain data_sources[0].id"
+                  : `Failed to fetch DB info (HTTP ${res.status})`
+                : `Query failed (HTTP ${res.status})`;
+
+            setBadge(resultBadgeEl, `HTTP ${res.status} ERROR`, "err");
+            setMessageBanner(`${stageHint}: [${errCode}] ${errMsg}`, "err");
+            appendLog(`${stageHint}: ${errCode}`);
+          }
+        } catch (err) {
+          const msg = formatError(err);
+          setBadge(resultBadgeEl, "REJECTED", "err");
+          setMessageBanner(`Request was rejected/failed: ${msg}`, "err");
+          updateExecutionMetrics({
+            cacheStatus: "-",
+            httpStatus: "REJECTED",
+            httpTone: "err",
+            localDate: todayLocal,
+            retried: "None",
+            dataSourceId: "-",
+          });
+          renderJsonPreview({ rejected: true, error: msg });
+          appendLog(`Query error: ${msg}`);
+        } finally {
+          setBusy(false);
+        }
+      }
+
+      async function runNegativePatchTest() {
+        if (!requireBridgeOrNotify()) return;
+        clearRenderedDetails();
+        setBusy(true);
+        const todayLocal = getLocalTodayYmd();
+        appendLog("Run: ④ Negative test PATCH /v1/pages/test");
+
+        try {
+          const res = await window.DD.connect.request({
+            connection: "notion",
+            method: "PATCH",
+            path: "/v1/pages/test",
+            body: { properties: {} },
+          });
+          setBadge(resultBadgeEl, "FAIL (passed through)", "err");
+          setMessageBanner(
+            `Warning: disallowed endpoint PATCH /v1/pages/test passed through the guard (HTTP ${res.status})`,
+            "err"
+          );
+          updateExecutionMetrics({
+            cacheStatus: "N/A",
+            httpStatus: res.status,
+            httpTone: "err",
+            localDate: todayLocal,
+            retried: "None",
+            dataSourceId: "-",
+          });
+          renderJsonPreview(res);
+          appendLog(`Negative test FAIL: passed through the guard (HTTP ${res.status})`);
+        } catch (err) {
+          const msg = formatError(err);
+          setBadge(resultBadgeEl, "PASS (rejection confirmed)", "ok");
+          setMessageBanner(`Rejected by the guard as expected: ${msg}`, "ok");
+          updateExecutionMetrics({
+            cacheStatus: "N/A",
+            httpStatus: "REJECTED (as expected)",
+            httpTone: "ok",
+            localDate: todayLocal,
+            retried: "None",
+            dataSourceId: "-",
+          });
+          renderJsonPreview({ expectedRejection: true, error: msg });
+          appendLog(`Negative test PASS: guard rejected (${msg})`);
+        } finally {
+          setBusy(false);
+        }
+      }
+
+      function buildIframeIsolationSrcdoc(nonce) {
+        const safeNonce = JSON.stringify(nonce);
+        return (
+          "<!DOCTYPE html><html><head><meta charset=\"UTF-8\"></head><body><script>" +
+          "(async function(){" +
+          "var nonce=" + safeNonce + ";" +
+          "try{" +
+          "  var isSubframe=false;" +
+          "  try{isSubframe=(window!==window.top);}catch(_){isSubframe=true;}" +
+          "  var ddType=typeof window.DD;" +
+          "  var hasNoDD=(ddType===\"undefined\");" +
+          "  var hasInternals=(typeof window.__TAURI_INTERNALS__!==\"undefined\"&&window.__TAURI_INTERNALS__!==null);" +
+          "  var hasInvoke=(hasInternals&&typeof window.__TAURI_INTERNALS__.invoke===\"function\");" +
+          "  var invokeBlocked=false;" +
+          "  var invokeDetail=\"\";" +
+          "  var unexpectedResult=null;" +
+          "  if(!hasInvoke){" +
+          "    invokeBlocked=true;" +
+          "    invokeDetail=\"__TAURI_INTERNALS__.invoke is undefined\";" +
+          "  }else{" +
+          "    try{" +
+          "      unexpectedResult=await window.__TAURI_INTERNALS__.invoke(\"dd_connect_request\",{request:{connection:\"notion\",method:\"GET\",path:\"/v1/users/me\",body:null}});" +
+          "      invokeBlocked=false;" +
+          "      invokeDetail=\"unexpectedly resolved\";" +
+          "    }catch(err){" +
+          "      invokeBlocked=true;" +
+          "      invokeDetail=(typeof err===\"string\")?err:(err&&err.message?err.message:String(err));" +
+          "    }" +
+          "  }" +
+          "  var originStr=\"\";" +
+          "  try{originStr=String(location.origin);}catch(_){originStr=\"(inaccessible)\";}" +
+          "  var passed=Boolean(isSubframe&&hasNoDD&&invokeBlocked);" +
+          "  parent.postMessage({type:\"dd-iframe-isolation-test\",nonce:nonce,origin:originStr,isSubframe:isSubframe,ddType:ddType,hasNoDD:hasNoDD,hasTauriInternals:hasInternals,hasInvoke:hasInvoke,invokeBlocked:invokeBlocked,invokeDetail:invokeDetail,unexpectedResult:unexpectedResult,passed:passed},\"*\");" +
+          "}catch(fatal){" +
+          "  parent.postMessage({type:\"dd-iframe-isolation-test\",nonce:nonce,passed:false,fatalError:String(fatal)},\"*\");" +
+          "}" +
+          "})();" +
+          "<" + "/script></body></html>"
+        );
+      }
+
+      async function runNegativeIframeTest() {
+        clearRenderedDetails();
+        setBusy(true);
+        const todayLocal = getLocalTodayYmd();
+        const nonce = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        appendLog("Run: ⑤ Negative test sandbox iframe isolation check");
+
+        const iframe = document.createElement("iframe");
+        iframe.setAttribute("sandbox", "allow-scripts");
+        iframe.hidden = true;
+        iframe.style.display = "none";
+
+        let timeoutId = null;
+        let onMessage = null;
+
+        try {
+          const result = await new Promise((resolve, reject) => {
+            onMessage = (event) => {
+              if (event.source !== iframe.contentWindow) return;
+              const data = event.data;
+              if (!data || data.type !== "dd-iframe-isolation-test" || data.nonce !== nonce) {
+                return;
+              }
+              resolve(data);
+            };
+
+            window.addEventListener("message", onMessage);
+            timeoutId = setTimeout(() => {
+              reject(new Error("iframe isolation test timed out (5000ms)"));
+            }, 5000);
+
+            iframe.srcdoc = buildIframeIsolationSrcdoc(nonce);
+            document.body.appendChild(iframe);
+          });
+
+          const detailPayload = {
+            parentHasDD: hasBridge(),
+            ...result,
+          };
+          jsonDetailsEl.open = true;
+          renderJsonPreview(detailPayload);
+
+          if (result.passed) {
+            setBadge(resultBadgeEl, "PASS (isolation confirmed)", "ok");
+            setMessageBanner(
+              `iframe isolation confirmed as expected (window.DD=${result.ddType}, invoke rejected: ${result.invokeDetail})`,
+              "ok"
+            );
+            updateExecutionMetrics({
+              cacheStatus: "N/A",
+              httpStatus: "ISOLATED (as expected)",
+              httpTone: "ok",
+              localDate: todayLocal,
+              retried: "None",
+              dataSourceId: "-",
+            });
+            appendLog(
+              `Negative test ⑤ PASS: isSubframe=${result.isSubframe}, DD=${result.ddType}, invokeBlocked=${result.invokeBlocked}`
+            );
+          } else {
+            setBadge(resultBadgeEl, "FAIL (isolation defect)", "err");
+            setMessageBanner(
+              `Warning: iframe isolation check failed (isSubframe=${result.isSubframe}, ddType=${result.ddType}, invokeBlocked=${result.invokeBlocked})`,
+              "err"
+            );
+            updateExecutionMetrics({
+              cacheStatus: "N/A",
+              httpStatus: "ISOLATION FAILED",
+              httpTone: "err",
+              localDate: todayLocal,
+              retried: "None",
+              dataSourceId: "-",
+            });
+            appendLog(
+              `Negative test ⑤ FAIL: isSubframe=${result.isSubframe}, DD=${result.ddType}, invokeBlocked=${result.invokeBlocked}`
+            );
+          }
+        } catch (err) {
+          const msg = formatError(err);
+          jsonDetailsEl.open = true;
+          setBadge(resultBadgeEl, "FAIL (error)", "err");
+          setMessageBanner(`An error occurred during the iframe isolation test: ${msg}`, "err");
+          updateExecutionMetrics({
+            cacheStatus: "N/A",
+            httpStatus: "TEST ERROR",
+            httpTone: "err",
+            localDate: todayLocal,
+            retried: "None",
+            dataSourceId: "-",
+          });
+          renderJsonPreview({ parentHasDD: hasBridge(), error: msg });
+          appendLog(`Negative test ⑤ error: ${msg}`);
+        } finally {
+          if (timeoutId !== null) {
+            clearTimeout(timeoutId);
+          }
+          if (onMessage !== null) {
+            window.removeEventListener("message", onMessage);
+          }
+          if (iframe.parentNode) {
+            iframe.parentNode.removeChild(iframe);
+          }
+          setBusy(false);
+        }
+      }
+
+      dbIdInput.addEventListener("input", () => {
+        setBadge(settingsBadgeEl, "Unsaved changes", "warn");
+        void refreshCachedDataSourceDisplay();
+      });
+
+      datePropInput.addEventListener("input", () => {
+        setBadge(settingsBadgeEl, "Unsaved changes", "warn");
+      });
+
+      saveBtn.addEventListener("click", () => {
+        void saveSettings();
+      });
+
+      reloadBtn.addEventListener("click", () => {
+        void loadSettings();
+      });
+
+      clearCacheBtn.addEventListener("click", () => {
+        void clearDataSourceCache();
+      });
+
+      testMeBtn.addEventListener("click", () => {
+        void runConnectionTest();
+      });
+
+      queryTodayBtn.addEventListener("click", () => {
+        void runQueryAction("today");
+      });
+
+      queryAllBtn.addEventListener("click", () => {
+        void runQueryAction("all");
+      });
+
+      negPatchBtn.addEventListener("click", () => {
+        void runNegativePatchTest();
+      });
+
+      negIframeBtn.addEventListener("click", () => {
+        void runNegativeIframeTest();
+      });
+
+      updateEnvironmentStatus();
+      setInterval(updateEnvironmentStatus, 30000);
+      void loadSettings();
+    })();
+  </script>
+</body>
+</html>
