@@ -351,6 +351,24 @@
           "markdownDescription": "Enables the add_widget command without any pre-configured scope."
         },
         {
+          "description": "Enables the dd_connect_request command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-dd-connect-request",
+          "markdownDescription": "Enables the dd_connect_request command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the dd_storage_get command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-dd-storage-get",
+          "markdownDescription": "Enables the dd_storage_get command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the dd_storage_set command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-dd-storage-set",
+          "markdownDescription": "Enables the dd_storage_set command without any pre-configured scope."
+        },
+        {
           "description": "Enables the delete_widget command without any pre-configured scope.",
           "type": "string",
           "const": "allow-delete-widget",
@@ -361,6 +379,12 @@
           "type": "string",
           "const": "allow-get-autostart",
           "markdownDescription": "Enables the get_autostart command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_samples_dir command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-samples-dir",
+          "markdownDescription": "Enables the get_samples_dir command without any pre-configured scope."
         },
         {
           "description": "Enables the get_webview_data_dir command without any pre-configured scope.",
@@ -429,6 +453,24 @@
           "markdownDescription": "Denies the add_widget command without any pre-configured scope."
         },
         {
+          "description": "Denies the dd_connect_request command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-dd-connect-request",
+          "markdownDescription": "Denies the dd_connect_request command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the dd_storage_get command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-dd-storage-get",
+          "markdownDescription": "Denies the dd_storage_get command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the dd_storage_set command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-dd-storage-set",
+          "markdownDescription": "Denies the dd_storage_set command without any pre-configured scope."
+        },
+        {
           "description": "Denies the delete_widget command without any pre-configured scope.",
           "type": "string",
           "const": "deny-delete-widget",
@@ -439,6 +481,12 @@
           "type": "string",
           "const": "deny-get-autostart",
           "markdownDescription": "Denies the get_autostart command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_samples_dir command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-samples-dir",
+          "markdownDescription": "Denies the get_samples_dir command without any pre-configured scope."
         },
         {
           "description": "Denies the get_webview_data_dir command without any pre-configured scope.",
