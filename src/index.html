@@ -292,13 +292,13 @@
       </div>
       <div class="field">
         <label class="field-label" for="widget-title">Title (optional)</label>
-        <input id="widget-title" type="text" placeholder="e.g. Commuter Train Timetable" />
+        <input id="widget-title" type="text" placeholder="Example: Commuter Train Timetable" />
       </div>
     </div>
     <div class="row">
       <div class="field">
         <label class="field-label" for="widget-source">URL or HTML file path</label>
-        <input id="widget-source" type="text" placeholder="https://muse.ai/..." />
+        <input id="widget-source" type="text" placeholder="https://example.com/..." />
       </div>
       <button class="secondary" id="btn-browse" style="margin-top: 18px; display: none;">Browse...</button>
       <button class="primary" id="btn-add" style="margin-top: 18px;">Add &amp; Show</button>
@@ -349,7 +349,7 @@
       browseBtn.style.display = isFile ? "inline-block" : "none";
       sourceEl.placeholder = isFile
         ? "C:\\path\\to\\widget.html"
-        : "https://muse.ai/...";
+        : "https://example.com/...";
     });
 
     browseBtn.addEventListener("click", async () => {
@@ -358,10 +358,20 @@
         return;
       }
       try {
-        const selected = await dialogOpen({
+        if (!samplesDirPath) {
+          const dir = await invoke("get_samples_dir").catch(() => null);
+          if (typeof dir === "string" && dir) {
+            samplesDirPath = dir;
+          }
+        }
+        const dialogOptions = {
           multiple: false,
           filters: [{ name: "HTML files", extensions: ["html", "htm"] }],
-        });
+        };
+        if (samplesDirPath) {
+          dialogOptions.defaultPath = samplesDirPath;
+        }
+        const selected = await dialogOpen(dialogOptions);
         if (typeof selected === "string" && selected) {
           sourceEl.value = selected;
         }
@@ -735,6 +745,14 @@
       .catch((err) => {
         dataDirEl.textContent = `Failed to get: ${err}`;
       });
+
+    invoke("get_samples_dir")
+      .then((dir) => {
+        if (typeof dir === "string" && dir) {
+          samplesDirPath = dir;
+        }
+      })
+      .catch(() => {});
 
     refreshAll();
   </script>
